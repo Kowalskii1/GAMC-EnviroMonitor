@@ -1,90 +1,65 @@
-🌍 Real-Time GAMC'EnviroMonitor
-Descripción del proyecto
+# 🌍 Sistema en Tiempo Real para la Captura, Análisis, Visualización y Monitoreo de Datos de Medio Ambiente Subterráneo GAMC-EnviroMonitor
 
-Este proyecto tiene como objetivo desarrollar un sistema de Big Data en tiempo real para la captura, limpieza, almacenamiento, análisis y visualización de datos ambientales —con especial enfoque en la zona de la Gran Área Metropolitana de la Ciudad (GAMC)— para las siguientes variables críticas:
+Este proyecto tiene como objetivo desarrollar un sistema de **Big Data en tiempo real** que permita la captura, limpieza, almacenamiento, análisis y visualización de datos ambientales —con enfoque en variables subterráneas como aire (CO₂), contaminación acústica y parámetros soterrados— con el fin de monitorear variables críticas del entorno y facilitar la toma de decisiones mediante técnicas de análisis de datos y Machine Learning.
 
-Concentración de CO₂ y otros gases en el aire
+---
 
-Niveles de contaminación acústica
+## 🧩 Arquitectura General
 
-Parámetros subterráneos (humedad)
+El sistema se compone de las siguientes etapas:
 
-El fin es monitorear estas variables, detectar anomalías, visualizar tendencias en tiempo real y facilitar la toma de decisiones mediante análisis de datos y modelos de Machine Learning.
+### 1. Ingesta de Datos  
+- Los datos son obtenidos a partir de sensores, archivos de texto (.txt) o archivos Excel (.xlsx) con mediciones del medio ambiente: concentración de CO₂, niveles de ruido, parámetros subterráneos (temperatura, humedad, gases, etc.).  
+- En futuras versiones se planea integrar flujos en tiempo real mediante protocolos como MQTT o plataformas como Kafka.
 
-🧩 Arquitectura General
+### 2. Limpieza y Preprocesamiento  
+Implementado en Python utilizando:  
+- `pandas` → para lectura, limpieza y manipulación de datos estructurados.  
+- `NumPy` → para operaciones matemáticas y vectoriales.  
+- `PySpark` → para procesamiento distribuido de grandes volúmenes de datos.  
+Durante esta fase se eliminan duplicados, se gestionan valores nulos, se estandarizan unidades y formatos, y se transforman los datos para su posterior análisis.
 
-El sistema se compone de varias etapas coordinadas para garantizar ingestión, procesamiento y visualización eficientes:
+### 3. Almacenamiento  
+- Se emplea una base de datos NoSQL, `MongoDB`, ideal para datos semi-estructurados y con necesidades de escalabilidad.  
+- La estructura de documentos en MongoDB permitirá consultas rápidas e integración futura de nuevos sensores o variables.
 
-1. Ingesta de Datos
+### 4. Análisis y Procesamiento  
+- Realizado en Python: análisis estadístico, detección de anomalías, y en etapas posteriores, modelos de Machine Learning para predicción de variables ambientales.  
+- Librerías principales: `scikit-learn` para ML, `Matplotlib` / `Seaborn` para visualización de resultados analíticos.
 
-Orígenes de datos: sensores instalados en la GAMC + archivos históricos (.csv .xlsx) con mediciones de aire/sonido/subterráneas.
+### 5. Visualización y Monitoreo  
+- En la versión inicial se implementará una interfaz en Python (usando `Matplotlib`, `Seaborn` o `Dash`) para visualizar:  
+  - Series temporales de CO₂, ruido y parámetros subterráneos.  
+  - Tendencias de variables a lo largo del tiempo.  
+  - Alertas o valores anómalos.  
+- En fases futuras se planea integrar con herramientas como `Grafana`, `Streamlit` o plataformas GIS (ej. ArcGIS) para dashboards interactivos y mapas de sensores.
 
-Futura integración de flujos en tiempo real mediante protocolos como MQTT o plataformas como Kafka.
+---
 
-2. Limpieza y Preprocesamiento
+## 🏗️ Tecnologías Utilizadas  
+| Componente                     | Tecnología / Herramienta           | Descripción                                           |
+|--------------------------------|------------------------------------|-------------------------------------------------------|
+| Lenguaje principal            | Python 3.x                         | Procesamiento, análisis y visualización de datos     |
+| Ingesta de datos              | Archivos TXT / XLSX + sensores     | Datos de CO₂, contaminación acústica, parámetros soterrados |
+| Limpieza y procesamiento      | Pandas, NumPy, PySpark             | Transformación y preparación de los datos            |
+| Almacenamiento                | MongoDB                            | Base de datos NoSQL para datos semi-estructurados    |
+| Análisis y Machine Learning   | Scikit-learn (Python)              | Modelos de predicción y análisis                     |
+| Visualización                 | Matplotlib, Dash                   | Gráficos, dashboards e interfaces                     |
+| Control de versiones          | GitHub                             | Repositorio colaborativo del proyecto                 |
 
-Implementado en Python utilizando:
+---
 
-pandas: lectura, limpieza y manipulación de datos estructurados.
+## ⚙️ Flujo del Sistema
 
-NumPy: operaciones matemáticas y vectoriales de alto rendimiento.
-
-PySpark: procesamiento distribuido para grandes volúmenes de datos.
-Durante esta fase se eliminan duplicados, se gestionan valores nulos, se estandarizan unidades/formatos y se transforman los datos para su análisis.
-
-3. Almacenamiento
-
-Base de datos: MongoDB (NoSQL) para soportar datos semi­estructurados y obtener consultas rápidas y escalabilidad.
-
-Estructura: documentos adaptados para incluir mediciones temporales de CO₂, ruido, parámetros subterráneos, metadatos de ubicación y sensor.
-
-4. Análisis y Procesamiento
-
-Lenguaje principal: Python.
-
-Algoritmos: análisis estadístico, detección de anomalías, y en fases posteriores, modelos de Machine Learning para predicción de tendencias ambientales.
-
-Librerías clave: scikit-learn para ML, Matplotlib / Seaborn para análisis visual.
-
-5. Visualización y Monitoreo
-
-Primera versión: interfaz en Python con Matplotlib, Seaborn o Dash, mostrando:
-
-Series temporales de CO₂, ruido y parámetros subterráneos.
-
-Tendencias y comparativas por ubicación.
-
-Alertas visuales para valores fuera de rango o anomalías.
-
-Fases futuras: integración con herramientas como Grafana, Streamlit o plataformas GIS (ej. ArcGIS) para mapas interactivos y dashboards en tiempo real.
-
-🏗️ Tecnologías Utilizadas
-Componente	Tecnología / Herramienta	Descripción
-Lenguaje principal	Python 3.x	Procesamiento, análisis y visualización
-Ingesta de datos	Archivos CSV / XLSX + sensores	Datos de CO₂, ruido y parámetros subterráneos
-Limpieza y procesamiento	Pandas, NumPy, PySpark	Transformación y preparación de datos
-Almacenamiento	MongoDB	Base de datos NoSQL para datos semi­estructurados
-Análisis y ML	Scikit-learn	Modelos y análisis predictivo
-Visualización	Matplotlib, Dash	Gráficos, dashboards y monitoreo visual
-Control de versiones	GitHub	Repositorio colaborativo del proyecto
-
-⚙️ Flujo del Sistema
-Fuentes de datos (Sensores / Archivos – CO₂, ruido, soterrados)
+```text
+[Fuentes de datos: TXT / Excel]
              ↓
-Limpieza y pre-procesamiento (Python: Pandas, NumPy, PySpark)
+[Limpieza y preprocesamiento - Python (Pandas, NumPy, PySpark)]
              ↓
-Almacenamiento en MySql, MongoDB
+[Almacenamiento - MongoDB]
              ↓
-Análisis y procesamiento (Python: estadística, ML)
+[Análisis y procesamiento - Python]
              ↓
-Visualización y monitoreo en dashboards e interfaces
+[Visualización y monitoreo - Python]
 
-🚀 Próximos pasos
 
-Incorporar flujo en tiempo real con MQTT/Kafka para ingestión en vivo de sensores.
-
-Desarrollar modelos de predicción para anticipar picos de contaminación de CO₂ o ruido, y detectar situaciones subterráneas críticas.
-
-Integrar un dashboard web interactivo y responsive, con mapas y geolocalización de sensores.
-
-Añadir sistema de alertas automatizadas (SMS, e-mail o notificaciones) cuando los valores excedan umbrales definidos.
