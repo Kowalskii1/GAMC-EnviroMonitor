@@ -5,7 +5,6 @@ import io
 import base64
 import struct
 import sys  
-# --- 1. FUNCIÓN DE DECODIFICACIÓN DE PAYLOAD (EM310-UDL) ---
 
 def decode_payload(base64_str):
 
@@ -50,11 +49,10 @@ def decode_payload(base64_str):
 
 # --- 2. FUNCIÓN PRINCIPAL DEL SCRIPT ---
 
-def ejecutar_etl_y_limpieza():
-    # --- Definición de Nombres de Archivos ---
-    input_file = "EM310-UDL-915M soterrados nov 2024.csv"
-    final_output_file = "datos_soterrados_limpio.csv"
+def ejecutar_etl_y_limpieza(input_file: str = "EM310-UDL-915M soterrados nov 2024.csv",\
+                            final_output_file: str = "datos_soterrados_limpio.csv"):
     
+    # --- Definición de Nombres de Archivos ---
     print(f"Iniciando el proceso ETL y de limpieza...")
     print(f"Archivo de entrada: {input_file}")
     print(f"Archivo de salida: {final_output_file}")
@@ -79,7 +77,6 @@ def ejecutar_etl_y_limpieza():
         df_raw = pd.read_csv(input_file, delimiter=';', low_memory=False, header=0, dtype=dtype_dict)
         print("...Archivo CSV cargado (forzando 'data' como texto).")
 
-        # --- 2B. Limpieza de Ubicación (Fusión de Columnas) ---
         print("Paso 2/5: Corrigiendo y extrayendo coordenadas...")
         
         col_name_loc = df_raw.columns[location_col_index]
@@ -99,7 +96,6 @@ def ejecutar_etl_y_limpieza():
         df_raw['longitude'] = pd.to_numeric(extracted_coords[1], errors='coerce')
         print("...Coordenadas de Latitud y Longitud extraídas.")
         
-        # --- 2D. Selección y Renombrado ---
         print("Paso 3/5: Renombrando y seleccionando columnas finales...")
         df_final = df_raw.rename(columns={
             'object.position': 'measurement_value_orig',
@@ -119,8 +115,6 @@ def ejecutar_etl_y_limpieza():
         df_key = df_final[final_key_columns].copy()
         print("...Columnas seleccionadas.")
 
-        # Aplicada directamente a 'df_key' en memoria
-        
         print("\nPaso 4/5: Eliminando filas con 'data' vacía...")
         
         total_filas_antes = len(df_key)
@@ -140,8 +134,7 @@ def ejecutar_etl_y_limpieza():
 
         # --- 3. Guardado Final ---
         print(f"\nPaso 5/5: Guardando el archivo final como: {final_output_file}...")
-        
-        # Se guarda con sep=',' como en tu segundo script
+
         df_filtrado.to_csv(final_output_file, index=False, sep=',')
         
         print(f"\n✅ Proceso ETL completado con éxito.")
@@ -160,4 +153,66 @@ def ejecutar_etl_y_limpieza():
         sys.exit(1)
 
 if __name__ == "__main__":
-    ejecutar_etl_y_limpieza()
+    def upload(file_path: str = None):
+        """Procesa un archivo CSV dado. Si no se proporciona `file_path`, intenta abrir
+        un diálogo gráfico de selección de archivos (tkinter). Si tkinter no está
+        disponible o falla, vuelve al prompt por terminal.
+
+        Devuelve True si el procesamiento terminó sin excepciones (aunque el
+        propio procesamiento puede llamar a sys.exit en errores fatales).
+        """
+        if not file_path:
+            # Primero intentamos abrir un diálogo gráfico (mejor UX en Windows)
+            try:
+                import tkinter as tk
+                from tkinter import filedialog
+
+                root = tk.Tk()
+                root.withdraw()  # no mostrar la ventana principal
+                file_path = filedialog.askopenfilename(
+                    title="Selecciona el archivo CSV a procesar",
+                    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+                )
+                root.destroy()
+
+                if not file_path:
+                    print("No se seleccionó ningún archivo. Abortando.")
+                    return False
+                print(f"Archivo seleccionado: {file_path}")
+            except Exception:
+                # Si no hay entorno gráfico o falla tkinter, pedir ruta por input
+                try:
+                    file_path = input("Ruta del archivo a procesar (csv): ").strip()
+                except Exception:
+                    print("No se pudo leer la entrada de usuario ni abrir diálogo. Abortando.")
+                    return False
+
+        if not file_path:
+            print("No se proporcionó ninguna ruta. Abortando.")
+            return False
+
+        try:
+            ejecutar_etl_y_limpieza(input_file=file_path)
+            return True
+        except SystemExit:
+            # ejecutar_etl_y_limpieza puede llamar a sys.exit en errores fatales
+            return False
+        except Exception as e:
+            print(f"Ocurrió un error al procesar el archivo: {e}")
+            return False
+
+    args = sys.argv[1:]
+    if len(args) == 0:
+        # Ningún argumento: usar comportamiento por defecto (archivo por defecto)
+        ejecutar_etl_y_limpieza()
+    elif len(args) >= 1:
+        if args[0].lower() == 'upload':
+            # python datos_soterrados.py upload <ruta>
+            ruta = args[1] if len(args) > 1 else None
+            success = upload(ruta)
+            sys.exit(0 if success else 1)
+        else:
+            # python datos_soterrados.py <ruta>
+            ruta = args[0]
+            success = upload(ruta)
+            sys.exit(0 if success else 1)
