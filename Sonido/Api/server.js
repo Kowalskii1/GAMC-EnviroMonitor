@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
-const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
 
@@ -13,111 +12,132 @@ const healthRoutes = require('./routes/health');
 
 // Importar middleware
 const errorHandler = require('./middleware/errorHandler');
-const logger = require('./middleware/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== MIDDLEWARE ====================
+// ==================== CONFIGURACIÓN ESTRICTA ====================
 
-// Helmet para seguridad
-app.use(helmet({
-  contentSecurityPolicy: false,
-  frameguard: { action: 'sameorigin' }
-}));
+// Deshabilitar X-Powered-By
+app.disable('x-powered-by');
 
-// Compresión
-app.use(compression());
-
-// Logging
-app.use(morgan('combined', { stream: logger.stream }));
-
-// CORS abierto (sin restricciones)
+// ==================== CORS (PRIMERO DE TODO) ====================
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Max-Age', '86400');
+  // Establecer headers CORS una sola vez
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'false');
+  res.setHeader('Access-Control-Max-Age', '86400');
   
+  // Manejar preflight
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    return res.status(204).end();
   }
+  
   next();
 });
+
+// ==================== MIDDLEWARE ====================
 
 // Body parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Compresión
+app.use(compression());
+
+// Logging simple
+app.use(morgan('dev'));
+
 // ==================== RUTAS ====================
 
-// Health check
+// Health check (primero)
 app.use('/api/health', healthRoutes);
 
-// Rutas principales
+// Rutas de sensores
 app.use('/api/sensores', sensorRoutes);
+
+// Rutas de estadísticas
 app.use('/api/estadisticas', estadisticasRoutes);
 
-// Servir frontend estático
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    // No sobrescribir CORS en archivos estáticos
+  }
+}));
 
 // Ruta raíz
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 404
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({
+    success: false,
     error: 'Ruta no encontrada',
     path: req.originalUrl,
     method: req.method
   });
 });
 
-// Manejo de errores global
-app.use(errorHandler);
+// Error Handler
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.message);
+  
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || 'Error interno del servidor',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
 
-// ==================== CONEXIÓN MONGODB ====================
+// ==================== MONGODB ====================
 
 async function connectMongoDB() {
   try {
     console.log('🔄 Conectando a MongoDB...');
+    
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       dbName: process.env.DB_NAME,
       maxPoolSize: 10,
       minPoolSize: 2,
-      maxIdleTimeMS: 60000,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
-    console.log('✅ MongoDB conectado exitosamente');
+    
+    console.log('✅ MongoDB conectado');
   } catch (error) {
-    console.error('❌ Error conectando a MongoDB:', error.message);
+    console.error('❌ Error MongoDB:', error.message);
     setTimeout(connectMongoDB, 5000);
   }
 }
 
-// ==================== INICIAR SERVIDOR ====================
+// ==================== INICIAR ====================
 
 connectMongoDB();
 
 const server = app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`📍 Ambiente: ${process.env.NODE_ENV}`);
-  console.log(`🌐 http://localhost:${PORT}`);
-  console.log(`📊 API disponible en http://localhost:${PORT}/api\n`);
+  console.log(`\n🚀 Servidor: http://localhost:${PORT}`);
+  console.log(`📊 API: http://localhost:${PORT}/api`);
+  console.log(`⚠️  CORS: Abierto sin restricciones\n`);
 });
 
-// Manejo de señales
-process.on('SIGTERM', async () => {
-  console.log('📴 SIGTERM recibido, cerrando gracefully...');
+// Manejo graceful shutdown
+const shutdown = async (signal) => {
+  console.log(`\n📴 ${signal} recibido, cerrando...`);
   server.close(async () => {
     await mongoose.connection.close();
+    console.log('✅ Servidor cerrado');
     process.exit(0);
   });
-});
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 module.exports = app;

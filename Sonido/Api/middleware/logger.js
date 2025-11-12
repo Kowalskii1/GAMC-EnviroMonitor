@@ -1,17 +1,25 @@
-const fs = require('fs');
-const path = require('path');
+// middleware/logger.js
+const winston = require('winston');
 
-const logDir = path.join(__dirname, '../logs');
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
 
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.simple()
+  }));
 }
 
-const logFile = fs.createWriteStream(
-  path.join(logDir, `${new Date().toISOString().split('T')[0]}.log`),
-  { flags: 'a' }
-);
+// ❌ NO AGREGUES NADA DE CORS AQUÍ
 
-module.exports = {
-  stream: logFile
+logger.stream = {
+  write: (message) => logger.info(message.trim())
 };
+
+module.exports = logger;

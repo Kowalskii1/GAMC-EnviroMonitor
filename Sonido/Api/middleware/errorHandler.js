@@ -1,13 +1,16 @@
+// middleware/errorHandler.js
 module.exports = (err, req, res, next) => {
-  console.error('❌ Error:', err.message);
+  console.error('Error:', err.message);
 
-  const status = err.status || 500;
-  const message = err.message || 'Error interno del servidor';
-
-  res.status(status).json({
+  // ❌ NO PONGAS NADA DE CORS AQUÍ
+  
+  const statusCode = err.status || err.statusCode || 500;
+  
+  res.status(statusCode).json({
     success: false,
-    error: message,
-    timestamp: new Date().toISOString(),
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: err.message || 'Error interno del servidor',
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: err.stack 
+    })
   });
 };
