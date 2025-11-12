@@ -1,8 +1,29 @@
 const Sensor = require('../models/Sensor');
+const { validationResult } = require('express-validator');
 
-// Obtener datos con filtros
-exports.getDatos = async (req, res) => {
+/**
+ * Middleware helper para manejar errores de validación
+ * Debe ser llamado al inicio de cada controlador que use validación
+ */
+const handleValidationErrors = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      errors: errors.array(),
+      timestamp: new Date().toISOString()
+    });
+  }
+  return null;
+};
+
+// Obtiene datos con filtros opcionales y paginación
+exports.getDatos = async (req, res, next) => {
   try {
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
+
     const {
       fechaInicio,
       fechaFin,
@@ -15,26 +36,32 @@ exports.getDatos = async (req, res) => {
 
     const filtro = {};
 
+    // Construye filtro de rango de fechas
     if (fechaInicio || fechaFin) {
       filtro.time = {};
       if (fechaInicio) filtro.time.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.time.$lte = new Date(fechaFin);
     }
 
+    // Construye filtro de rango de decibeles
     if (minDecibeles || maxDecibeles) {
       filtro['measurements.LAeq'] = {};
       if (minDecibeles) filtro['measurements.LAeq'].$gte = parseFloat(minDecibeles);
       if (maxDecibeles) filtro['measurements.LAeq'].$lte = parseFloat(maxDecibeles);
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Calcula skip para paginación
+    const pageInt = parseInt(page);
+    const limitInt = parseInt(limit);
+    const skip = (pageInt - 1) * limitInt;
 
+    // Ejecuta consultas en paralelo para mejor performance
     const [datos, total] = await Promise.all([
       Sensor.find(filtro)
         .sort(sort)
         .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
+        .limit(limitInt)
+        .lean(), // Usa lean para mejor performance
       Sensor.countDocuments(filtro)
     ]);
 
@@ -43,24 +70,25 @@ exports.getDatos = async (req, res) => {
       data: datos,
       pagination: {
         total,
-        page: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit)),
-        limit: parseInt(limit)
+        page: pageInt,
+        pages: Math.ceil(total / limitInt),
+        limit: limitInt
       },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    // Pasa el error al middleware global de errores
+    next(error);
   }
 };
 
-// Obtener por ID
-exports.getDatoById = async (req, res) => {
+// Obtiene un documento específico por su ID de MongoDB
+exports.getDatoById = async (req, res, next) => {
   try {
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
+
     const dato = await Sensor.findById(req.params.id).lean();
     
     if (!dato) {
@@ -77,22 +105,23 @@ exports.getDatoById = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Últimas mediciones
-exports.getUltimas = async (req, res) => {
+// Obtiene las últimas N mediciones ordenadas por fecha descendente
+exports.getUltimas = async (req, res, next) => {
   try {
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
+
     const { cantidad = 50 } = req.query;
+    const cantidadInt = Math.min(parseInt(cantidad), 1000); // Límite máximo de seguridad
 
     const datos = await Sensor.find()
       .sort({ time: -1 })
-      .limit(parseInt(cantidad))
+      .limit(cantidadInt)
       .lean();
 
     res.json({
@@ -102,18 +131,18 @@ exports.getUltimas = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Rango de fechas
-exports.getRangoFechas = async (req, res) => {
+// Obtiene el rango de fechas disponible en la base de datos
+exports.getRangoFechas = async (req, res, next) => {
   try {
+    // Optimiza agregación proyectando solo el campo necesario
     const rango = await Sensor.aggregate([
+      {
+        $project: { time: 1 }
+      },
       {
         $group: {
           _id: null,
@@ -130,17 +159,18 @@ exports.getRangoFechas = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Búsqueda avanzada
-exports.buscarAvanzado = async (req, res) => {
+// Búsqueda avanzada con múltiples filtros (CAMBIO: debe ser GET, no POST)
+exports.buscarAvanzado = async (req, res, next) => {
   try {
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
+
+    // CORRECCIÓN: usa req.query en vez de req.body ya que es GET
     const {
       texto,
       fechaInicio,
@@ -149,10 +179,11 @@ exports.buscarAvanzado = async (req, res) => {
       maxDecibeles,
       page = 1,
       limit = 100
-    } = req.body;
+    } = req.query;
 
     const filtro = {};
 
+    // Búsqueda por texto en múltiples campos
     if (texto) {
       filtro.$or = [
         { 'deviceInfo.deviceName': new RegExp(texto, 'i') },
@@ -161,25 +192,30 @@ exports.buscarAvanzado = async (req, res) => {
       ];
     }
 
+    // Filtro de fechas
     if (fechaInicio || fechaFin) {
       filtro.time = {};
       if (fechaInicio) filtro.time.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.time.$lte = new Date(fechaFin);
     }
 
+    // Filtro de decibeles
     if (minDecibeles || maxDecibeles) {
       filtro['measurements.LAeq'] = {};
       if (minDecibeles) filtro['measurements.LAeq'].$gte = parseFloat(minDecibeles);
       if (maxDecibeles) filtro['measurements.LAeq'].$lte = parseFloat(maxDecibeles);
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageInt = parseInt(page);
+    const limitInt = Math.min(parseInt(limit), 1000); // Límite de seguridad
+    const skip = (pageInt - 1) * limitInt;
 
+    // Ejecuta consultas en paralelo
     const [datos, total] = await Promise.all([
       Sensor.find(filtro)
         .sort({ time: -1 })
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(limitInt)
         .lean(),
       Sensor.countDocuments(filtro)
     ]);
@@ -189,40 +225,49 @@ exports.buscarAvanzado = async (req, res) => {
       data: datos,
       pagination: {
         total,
-        page: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit))
+        page: pageInt,
+        pages: Math.ceil(total / limitInt),
+        limit: limitInt
       },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Exportar CSV
-exports.exportarCSV = async (req, res) => {
+// Exporta datos a formato CSV
+exports.exportarCSV = async (req, res, next) => {
   try {
-    const { fechaInicio, fechaFin } = req.query;
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
+
+    const { fechaInicio, fechaFin, limit = 10000 } = req.query;
     const filtro = {};
 
+    // Filtro de fechas
     if (fechaInicio || fechaFin) {
       filtro.time = {};
       if (fechaInicio) filtro.time.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.time.$lte = new Date(fechaFin);
     }
 
-    const datos = await Sensor.find(filtro).lean();
+    // CORRECCIÓN: Limita la cantidad de datos exportados para evitar timeout
+    const limitInt = Math.min(parseInt(limit), 50000);
 
+    const datos = await Sensor.find(filtro)
+      .sort({ time: -1 })
+      .limit(limitInt)
+      .lean();
+
+    // Genera CSV con encabezados
     let csv = 'Fecha,Dispositivo,Dirección,LAeq (dB),LAI,LAImax,Batería (%),Frecuencia\n';
     
     datos.forEach(d => {
-      const fecha = new Date(d.time).toLocaleString('es-BO');
-      const dispositivo = d.deviceInfo?.deviceName || '';
-      const direccion = d.deviceInfo?.tags?.Address || '';
+      const fecha = new Date(d.time).toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+      const dispositivo = (d.deviceInfo?.deviceName || '').replace(/"/g, '""');
+      const direccion = (d.deviceInfo?.tags?.Address || '').replace(/"/g, '""');
       const laeq = d.measurements?.LAeq || '';
       const lai = d.measurements?.LAI || '';
       const laimax = d.measurements?.LAImax || '';
@@ -232,24 +277,27 @@ exports.exportarCSV = async (req, res) => {
       csv += `"${fecha}","${dispositivo}","${direccion}",${laeq},${lai},${laimax},${bateria},${frecuencia}\n`;
     });
 
+    // CORRECCIÓN: Usa UTF-8 BOM para compatibilidad con Excel
+    const BOM = '\uFEFF';
     res.header('Content-Type', 'text/csv; charset=utf-8');
-    res.header('Content-Disposition', 'attachment; filename=datos-sonido.csv');
-    res.send(csv);
+    res.header('Content-Disposition', `attachment; filename=datos-sonido-${Date.now()}.csv`);
+    res.send(BOM + csv);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Estadísticas por hora
-exports.estadisticasHora = async (req, res) => {
+// Calcula estadísticas agregadas por hora
+exports.estadisticasHora = async (req, res, next) => {
   try {
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
+
     const { fecha } = req.query;
     const filtro = {};
 
+    // Filtra por día específico si se proporciona
     if (fecha) {
       const d = new Date(fecha);
       filtro.time = {
@@ -258,11 +306,18 @@ exports.estadisticasHora = async (req, res) => {
       };
     }
 
+    // Optimiza agregación proyectando solo campos necesarios
     const stats = await Sensor.aggregate([
       { $match: filtro },
       {
+        $project: {
+          hora: { $hour: '$time' },
+          'measurements.LAeq': 1
+        }
+      },
+      {
         $group: {
-          _id: { $hour: '$time' },
+          _id: '$hora',
           promedio: { $avg: '$measurements.LAeq' },
           maximo: { $max: '$measurements.LAeq' },
           minimo: { $min: '$measurements.LAeq' },
@@ -278,21 +333,24 @@ exports.estadisticasHora = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Estadísticas por día
-exports.estadisticasDia = async (req, res) => {
+// Calcula estadísticas agregadas por día
+exports.estadisticasDia = async (req, res, next) => {
   try {
-    const { dias = 30 } = req.query;
-    const fechaInicio = new Date();
-    fechaInicio.setDate(fechaInicio.getDate() - parseInt(dias));
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
 
+    const { dias = 30 } = req.query;
+    const diasInt = Math.min(parseInt(dias), 365); // Límite máximo 1 año
+    
+    const fechaInicio = new Date();
+    fechaInicio.setDate(fechaInicio.getDate() - diasInt);
+
+    // Optimiza agregación proyectando solo campos necesarios
     const stats = await Sensor.aggregate([
       {
         $match: {
@@ -300,8 +358,14 @@ exports.estadisticasDia = async (req, res) => {
         }
       },
       {
+        $project: {
+          fecha: { $dateToString: { format: '%Y-%m-%d', date: '$time' } },
+          'measurements.LAeq': 1
+        }
+      },
+      {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$time' } },
+          _id: '$fecha',
           promedio: { $avg: '$measurements.LAeq' },
           maximo: { $max: '$measurements.LAeq' },
           minimo: { $min: '$measurements.LAeq' },
@@ -314,23 +378,25 @@ exports.estadisticasDia = async (req, res) => {
     res.json({
       success: true,
       data: stats,
-      dias: parseInt(dias),
+      dias: diasInt,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
-// Alertas
-exports.getAlertas = async (req, res) => {
+// Obtiene alertas cuando los valores exceden umbrales definidos
+exports.getAlertas = async (req, res, next) => {
   try {
-    const { umbralBajo = 50, umbralAlto = 80 } = req.query;
+    // Valida errores de express-validator
+    const validationError = handleValidationErrors(req, res);
+    if (validationError) return;
 
+    const { umbralBajo = 50, umbralAlto = 80, limit = 1000 } = req.query;
+    const limitInt = Math.min(parseInt(limit), 5000); // Límite de seguridad
+
+    // Encuentra valores fuera del rango normal
     const alertas = await Sensor.find({
       $or: [
         { 'measurements.LAeq': { $lt: parseFloat(umbralBajo) } },
@@ -338,7 +404,7 @@ exports.getAlertas = async (req, res) => {
       ]
     })
       .sort({ time: -1 })
-      .limit(1000)
+      .limit(limitInt)
       .lean();
 
     res.json({
@@ -350,11 +416,7 @@ exports.getAlertas = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    next(error);
   }
 };
 
