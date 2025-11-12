@@ -1,22 +1,27 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const cors = require('cors');
-// 1. Cargar variables de entorno
+
 require('dotenv').config();
 
-// --- Configuración desde .env ---
-// 2. Usar variables de .env con valores por defecto
+
+const PORT = 3000;
+const MONGO_URI = "mongodb+srv://admin:admin@emergentes.yscexc1.mongodb.net/?appName=emergentes";
+//const MONGO_URI = "mongodb://localhost:27017/";
+const DB_NAME = "datos_soterrados";
+//const DB_NAME = "soterradosDB";
+const MAX_RECORDS = 5000;
+
+/*
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.DB_NAME;
-// Convertir a número el límite, con un valor por defecto
-const MAX_RECORDS = parseInt(process.env.MAX_RECORDS_PER_PAGE, 10) || 1000;
+const COLLECTION_NAME = process.env.COLLECTION_NAME || "data_soterrados";
+const MAX_RECORDS = process.env.MAX_RECORDS_PER_PAGE || 5000;
+*/
+//const COLLECTION_NAME = "sensores";
+const COLLECTION_NAME = "data_soterrados";
 
-// --- Constantes de la aplicación ---
-// Esto podría moverse a .env si se desea, ej. COLLECTION_NAME=sensores
-const COLLECTION_NAME = "sensores";
-
-// Validar que las variables críticas estén presentes
 if (!MONGO_URI || !DB_NAME) {
   console.error("Error: Faltan variables de entorno críticas (MONGODB_URI o DB_NAME).");
   console.log(`MONGO_URI: ${MONGO_URI}, DB_NAME: ${DB_NAME}`);
@@ -24,31 +29,20 @@ if (!MONGO_URI || !DB_NAME) {
 }
 
 const app = express();
-
-// --- Middleware ---
 app.use(express.json());
 app.use(cors());
 
-/**
- * Función principal asíncrona para conectar a la DB
- * y luego iniciar el servidor.
- */
 async function main() {
   const client = new MongoClient(MONGO_URI);
   let sensoresCollection;
 
   try {
-    // 1. Conectar a MongoDB
     await client.connect();
     const db = client.db(DB_NAME);
     sensoresCollection = db.collection(COLLECTION_NAME);
 
     console.log(`Conectado a MongoDB (DB: ${DB_NAME}, Colección: ${COLLECTION_NAME})`);
     console.log(`Límite máximo de registros por consulta: ${MAX_RECORDS}`);
-
-    // --- Definición de Rutas ---
-    // Las rutas se definen *después* de conectar,
-    // asegurando que 'sensoresCollection' esté disponible.
 
     app.get('/api', (req, res) => {
       res.json({
@@ -59,7 +53,6 @@ async function main() {
       });
     });
 
-    // Último estado por sensor
     app.get('/api/sensores/status', async (req, res) => {
       try {
         const pipeline = [
@@ -75,7 +68,6 @@ async function main() {
       }
     });
 
-    // Sensores actualmente en alerta (ej. data == "0")
     app.get('/api/sensores/alertas', async (req, res) => {
       try {
         const pipeline = [
@@ -92,14 +84,12 @@ async function main() {
       }
     });
 
-    // Historial por sensor
     app.get('/api/historial/sensor/:deviceName', async (req, res) => {
       try {
         const { deviceName } = req.params;
         const query = { deviceName };
         const resultado = await sensoresCollection.find(query)
           .sort({ time: -1 })
-          // 3. Usar el límite de .env
           .limit(MAX_RECORDS)
           .toArray();
         res.json(resultado);
@@ -109,7 +99,6 @@ async function main() {
       }
     });
 
-    // Historial por rango de fechas
     app.get('/api/historial/fechas', async (req, res) => {
       try {
         const { fechaInicio, fechaFin } = req.query;
@@ -119,7 +108,6 @@ async function main() {
         const query = { time: { $gte: fechaInicio, $lte: fechaFin } };
         const resultado = await sensoresCollection.find(query)
           .sort({ time: 1 })
-          // 3. Usar el límite de .env (protege contra rangos muy grandes)
           .limit(MAX_RECORDS)
           .toArray();
         res.json(resultado);
@@ -129,7 +117,6 @@ async function main() {
       }
     });
 
-    // Reporte por sensor y fechas
     app.get('/api/historial/reporte', async (req, res) => {
       try {
         const { deviceName, fechaInicio, fechaFin } = req.query;
@@ -139,7 +126,6 @@ async function main() {
         const query = { deviceName, time: { $gte: fechaInicio, $lte: fechaFin } };
         const resultado = await sensoresCollection.find(query)
           .sort({ time: 1 })
-          // 3. Usar el límite de .env
           .limit(MAX_RECORDS)
           .toArray();
         res.json(resultado);
@@ -149,7 +135,6 @@ async function main() {
       }
     });
 
-    // Historial por ubicación
     app.get('/api/sensores/ubicacion', async (req, res) => {
       try {
         const { direccion } = req.query;
@@ -157,7 +142,6 @@ async function main() {
         const query = { device_address: direccion };
         const resultado = await sensoresCollection.find(query)
           .sort({ time: -1 })
-          // 3. Usar el límite de .env
           .limit(MAX_RECORDS)
           .toArray();
         res.json(resultado);
@@ -167,7 +151,6 @@ async function main() {
       }
     });
 
-    // Endpoints auxiliares
     app.get('/api/sensores/unicos', async (req, res) => {
       try {
         const resultado = await sensoresCollection.distinct("deviceName");
@@ -188,7 +171,6 @@ async function main() {
       }
     });
 
-    // 4. Iniciar el servidor *después* de conectar a la DB
     app.listen(PORT, () => {
       console.log(`Servidor API escuchando en http://localhost:${PORT}`);
     });
@@ -199,5 +181,4 @@ async function main() {
   }
 }
 
-// Ejecutar la función principal
 main();
