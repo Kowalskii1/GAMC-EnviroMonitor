@@ -4,23 +4,23 @@ const cors = require('cors');
 
 require('dotenv').config();
 
-
+/*
 const PORT = 3000;
 const MONGO_URI = "mongodb+srv://admin:admin@emergentes.yscexc1.mongodb.net/?appName=emergentes";
 //const MONGO_URI = "mongodb://localhost:27017/";
 const DB_NAME = "datos_soterrados";
 //const DB_NAME = "soterradosDB";
 const MAX_RECORDS = 5000;
+*/
 
-/*
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.DB_NAME;
 const COLLECTION_NAME = process.env.COLLECTION_NAME || "data_soterrados";
 const MAX_RECORDS = process.env.MAX_RECORDS_PER_PAGE || 5000;
-*/
+
 //const COLLECTION_NAME = "sensores";
-const COLLECTION_NAME = "data_soterrados";
+//const COLLECTION_NAME = "data_soterrados";
 
 if (!MONGO_URI || !DB_NAME) {
   console.error("Error: Faltan variables de entorno críticas (MONGODB_URI o DB_NAME).");
@@ -52,6 +52,40 @@ async function main() {
         collection: COLLECTION_NAME
       });
     });
+
+    app.get('/api/home', async (req, res) => {
+      try {
+        // 1. Calcular las fechas
+        const now = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        // 2. Convertir a formato ISO (asumiendo que guardas las fechas como strings ISO)
+        const fechaInicio = thirtyDaysAgo.toISOString();
+        const fechaFin = now.toISOString();
+
+        // 3. Crear la consulta para MongoDB
+        const query = {
+          time: {
+            $gte: fechaInicio, // $gte = "greater than or equal" (mayor o igual que)
+            $lte: fechaFin   // $lte = "less than or equal" (menor o igual que)
+          }
+        };
+
+        // 4. Ejecutar la consulta
+        const resultado = await sensoresCollection.find(query)
+          .sort({ time: 1 }) // Ordenar por fecha ascendente
+          .limit(MAX_RECORDS) // Usar el límite de registros
+          .toArray();
+
+        res.json(resultado);
+
+      } catch (e) {
+        console.error("Error en /api/historial/ultimos30dias:", e);
+        res.status(500).json({ error: e.message });
+      }
+    });
+
 
     app.get('/api/sensores/status', async (req, res) => {
       try {
@@ -182,3 +216,6 @@ async function main() {
 }
 
 main();
+
+
+//por mes, por mes seleccionado y por sensor
