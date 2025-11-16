@@ -3,82 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Monitoreo WS302 - Documentación Completa</title>
+    <title>EnviroMonitor - Sistema de Monitoreo Ambiental WS302</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        /* Tu CSS completo sin cambios - mantengo el diseño que te gusta */
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #0f172a;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #06b6d4;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
+            background-attachment: fixed;
+            color: var(--dark);
+            line-height: 1.6;
         }
 
-        .container { 
-            max-width: 1400px; 
-            margin: 0 auto; 
-        }
-
-        header {
-            text-align: center;
-            color: white;
-            margin-bottom: 40px;
-            padding: 40px 20px;
-            animation: fadeIn 0.6s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        h1 { 
-            font-size: 2.8em; 
-            margin-bottom: 15px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .subtitle { 
-            font-size: 1.3em; 
-            opacity: 0.95;
-            margin-bottom: 20px;
-        }
-
-        .server-status {
-            background: rgba(255, 255, 255, 0.2);
+        /* Mantengo todo tu CSS exactamente igual... */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            padding: 15px 25px;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: inline-flex;
+            box-shadow: var(--shadow-lg);
+            padding: 1rem 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled {
+            padding: 0.5rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .logo {
+            display: flex;
             align-items: center;
-            gap: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .logo i {
+            font-size: 32px;
+            animation: soundwave 2s ease-in-out infinite;
+        }
+
+        @keyframes soundwave {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.2); }
         }
 
         .status-indicator {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(239, 246, 255, 0.8);
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .status-indicator.online {
+            background: rgba(209, 250, 229, 0.8);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .status-indicator.offline {
+            background: rgba(254, 226, 226, 0.8);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            animation: pulse 2s infinite;
-            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
-        .status-online { 
-            background: #4CAF50;
-            box-shadow: 0 0 15px #4CAF50;
+        .status-dot.online {
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
         }
 
-        .status-offline { 
-            background: #f44336;
-            box-shadow: 0 0 15px #f44336;
-        }
-
-        .status-checking {
-            background: #FFC107;
-            box-shadow: 0 0 15px #FFC107;
+        .status-dot.offline {
+            background: var(--danger);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
         }
 
         @keyframes pulse {
@@ -86,260 +139,319 @@
             50% { opacity: 0.7; transform: scale(1.1); }
         }
 
-        .db-info {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 10px 20px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 0.9em;
-            display: inline-block;
+        .sidebar {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            z-index: 999;
+            padding: 20px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-lg);
+            transition: all 0.3s ease;
         }
 
-        .endpoints {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .endpoint {
-            background: white;
-            padding: 28px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-nav .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .sidebar-nav .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            color: var(--secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
             position: relative;
             overflow: hidden;
         }
 
-        .endpoint::before {
+        .sidebar-nav .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-nav .nav-link:hover {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .sidebar-nav .nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .sidebar-nav .nav-link.active::before {
+            transform: scaleY(1);
+        }
+
+        .sidebar-nav .nav-link i {
+            font-size: 20px;
+            min-width: 24px;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-nav .nav-link:hover i {
+            transform: scale(1.2);
+        }
+
+        .main {
+            margin-left: 300px;
+            margin-top: 80px;
+            padding: 30px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .pagetitle {
+            margin-bottom: 30px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .pagetitle h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .breadcrumb-item {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .breadcrumb-item.active {
+            color: white;
+            font-weight: 600;
+        }
+
+        .card {
+            background: white;
+            border: none;
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 30px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--light);
+        }
+
+        .info-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-card::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            transform: scaleX(0);
-            transition: transform 0.3s;
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
         }
 
-        .endpoint:hover::before {
-            transform: scaleX(1);
+        .info-card h6 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--secondary);
+            margin: 0;
+            line-height: 1;
         }
 
-        .endpoint:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-        }
-
-        .method {
-            display: inline-block;
-            padding: 7px 14px;
-            border-radius: 6px;
-            font-size: 0.75em;
-            font-weight: bold;
-            color: white;
-            margin-bottom: 14px;
+        .info-card .label {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            margin-top: 8px;
         }
 
-        .get { background: linear-gradient(135deg, #4CAF50, #45a049); }
-        .post { background: linear-gradient(135deg, #2196F3, #1976D2); }
-
-        .endpoint h3 {
-            color: #667eea;
-            font-size: 1.4em;
-            margin-bottom: 12px;
-            font-weight: 600;
+        .card-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            transition: all 0.3s ease;
         }
 
-        .endpoint p {
-            color: #666;
-            margin-bottom: 16px;
-            font-size: 0.95em;
-            line-height: 1.7;
+        .card:hover .card-icon {
+            transform: scale(1.1) rotate(5deg);
         }
 
-        code {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            padding: 14px;
-            border-radius: 8px;
-            display: block;
-            font-size: 0.82em;
-            overflow-x: auto;
-            margin: 14px 0;
-            font-family: 'Courier New', 'Consolas', monospace;
-            word-break: break-all;
-            color: #495057;
+        .icon-blue {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .icon-green {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .icon-orange {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .icon-red {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .chart-container {
             position: relative;
+            height: 350px;
+            padding: 10px;
         }
 
-        code::before {
-            content: 'URL';
-            position: absolute;
-            top: -8px;
-            left: 10px;
-            background: white;
-            padding: 2px 8px;
-            font-size: 0.7em;
-            color: #667eea;
+        .table {
+            margin: 0;
+        }
+
+        .table thead th {
+            background: var(--light);
+            color: var(--secondary);
             font-weight: 600;
-            border-radius: 4px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: none;
+            padding: 16px;
+        }
+
+        .table tbody td {
+            padding: 16px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .table tbody tr:hover {
+            background: var(--light);
+        }
+
+        .badge {
+            font-weight: 600;
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
         }
 
         .btn {
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-primary {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-            font-size: 0.9em;
-            margin-top: 12px;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-            width: 100%;
         }
 
-        .btn:hover { 
+        .btn-primary:hover {
             background: linear-gradient(135deg, #5568d3, #6a3f8f);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
             transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
-        .btn:active { 
-            transform: translateY(0);
-            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn:disabled {
-            background: linear-gradient(135deg, #ccc, #aaa);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .response {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 14px;
-            margin-top: 14px;
-            border-radius: 6px;
-            max-height: 350px;
-            overflow-y: auto;
-            display: none;
-            font-size: 0.78em;
-            font-family: 'Courier New', 'Consolas', monospace;
-            white-space: pre-wrap;
-            word-break: break-word;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-            position: relative;
-        }
-
-        .response.active { 
-            display: block; 
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; max-height: 0; }
-            to { opacity: 1; max-height: 350px; }
-        }
-
-        .response.success { 
-            border-left-color: #4CAF50;
-            background: #f1f8f4;
-        }
-
-        .response.error { 
-            border-left-color: #f44336;
-            background: #fef5f5;
-        }
-
-        .response.empty { 
-            border-left-color: #FF9800;
-            background: #fff8f0;
-        }
-
-        .response-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-        }
-
-        .response-time {
-            font-size: 0.85em;
-            color: #666;
-            font-weight: 600;
-        }
-
-        .copy-btn {
-            background: transparent;
-            border: 1px solid #667eea;
-            color: #667eea;
-            padding: 4px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85em;
-            transition: all 0.2s;
-        }
-
-        .copy-btn:hover {
-            background: #667eea;
+        .btn-export {
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: white;
-            display: block;
-        }
-
-        .stat-label {
-            font-size: 0.85em;
-            opacity: 0.9;
-            margin-top: 5px;
-        }
-
-        footer {
-            text-align: center;
-            color: white;
-            padding: 40px 20px;
-            margin-top: 50px;
-            border-top: 1px solid rgba(255,255,255,0.2);
-        }
-
-        footer a {
-            color: white;
-            text-decoration: none;
-            border-bottom: 1px dashed rgba(255,255,255,0.5);
-            transition: all 0.3s;
-        }
-
-        footer a:hover {
-            border-bottom: 1px solid white;
+        .btn-export:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
         .loading-overlay {
@@ -348,7 +460,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(102, 126, 234, 0.9);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             display: none;
             justify-content: center;
             align-items: center;
@@ -359,443 +472,1121 @@
             display: flex;
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3em;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        .alert {
+            border: none;
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .alert-info {
+            background: rgba(6, 182, 212, 0.1);
+            color: #0e7490;
+            border-left: 4px solid #06b6d4;
+        }
+
+        .device-card {
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .device-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+
+        .device-card h6 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        /* NUEVO: Badge informativo del rango de datos */
+        .data-info-badge {
+            display: inline-block;
+            padding: 10px 16px;
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1199px) {
+            .sidebar {
+                left: -280px;
+            }
+
+            .sidebar.show {
+                left: 0;
+            }
+
+            .main {
+                margin-left: 0;
+            }
         }
 
         @media (max-width: 768px) {
-            h1 { font-size: 2em; }
-            .subtitle { font-size: 1em; }
-            .endpoints { grid-template-columns: 1fr; }
-            code { font-size: 0.75em; }
-            .endpoint { padding: 20px; }
+            .pagetitle h1 {
+                font-size: 24px;
+            }
+
+            .card-body {
+                padding: 16px;
+            }
+
+            .info-card h6 {
+                font-size: 24px;
+            }
         }
 
-        /* Scrollbar personalizado */
-        .response::-webkit-scrollbar {
-            width: 8px;
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
         }
 
-        .response::-webkit-scrollbar-track {
-            background: rgba(0,0,0,0.05);
+        ::-webkit-scrollbar-track {
+            background: var(--light);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
             border-radius: 10px;
         }
 
-        .response::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 10px;
-        }
-
-        .response::-webkit-scrollbar-thumb:hover {
-            background: #5568d3;
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
         }
     </style>
 </head>
 <body>
+
+    <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3 fw-bold text-primary">Cargando datos...</p>
+        </div>
     </div>
 
-    <div class="container">
-        <header>
-            <h1>📊 API Monitoreo Ruido WS302</h1>
-            <p class="subtitle">Sistema de Monitoreo de Ruido Ambiental - LoRaWAN</p>
-            
-            <div class="server-status">
-                <span class="status-indicator status-checking" id="statusIndicator"></span>
-                <span id="statusText">Verificando servidor...</span>
-            </div>
-
-            <div class="db-info" id="dbInfo">
-                <span id="dbDetails">Cargando información de BD...</span>
-            </div>
-
-            <div class="stats-grid" id="statsGrid" style="display: none;">
-                <div class="stat-card">
-                    <span class="stat-value" id="totalDocs">-</span>
-                    <span class="stat-label">Total Documentos</span>
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <a href="#" class="logo">
+                        <i class="bi bi-soundwave"></i>
+                        <span>EnviroMonitor</span>
+                    </a>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-value" id="totalDevices">-</span>
-                    <span class="stat-label">Dispositivos</span>
+                <div class="col-md-6 text-end">
+                    <div class="status-indicator d-inline-flex" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span id="statusText">Verificando sistema...</span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-value" id="avgLAeq">-</span>
-                    <span class="stat-label">LAeq Promedio</span>
-                </div>
-            </div>
-        </header>
-
-        <div class="endpoints">
-            <!-- Health Check -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>🏥 Health Check</h3>
-                <p>Verifica el estado del servidor, MongoDB y tiempo de actividad</p>
-                <code>http://localhost:3000/api/health</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/health', 'health')">🔍 Probar Endpoint</button>
-                <div id="health" class="response"></div>
-            </div>
-
-            <!-- Dispositivos -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>📱 Lista de Dispositivos</h3>
-                <p>Obtiene todos los dispositivos LoRaWAN únicos con sus últimas mediciones</p>
-                <code>http://localhost:3000/api/sensores/devices</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/devices', 'devices')">🔍 Probar Endpoint</button>
-                <div id="devices" class="response"></div>
-            </div>
-
-            <!-- Obtener Datos -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>📊 Obtener Datos</h3>
-                <p>Retorna mediciones con filtros opcionales: paginación, fechas y rangos de decibeles</p>
-                <code>http://localhost:3000/api/sensores/datos?page=1&limit=10</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/datos?limit=10', 'datos')">🔍 Probar Endpoint</button>
-                <div id="datos" class="response"></div>
-            </div>
-
-            <!-- Últimas Mediciones -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>⏱️ Últimas Mediciones</h3>
-                <p>Retorna las últimas N mediciones ordenadas por fecha descendente</p>
-                <code>http://localhost:3000/api/sensores/ultimas?cantidad=10</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/ultimas?cantidad=10', 'ultimas')">🔍 Probar Endpoint</button>
-                <div id="ultimas" class="response"></div>
-            </div>
-
-            <!-- Rango de Fechas -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>📅 Rango de Fechas</h3>
-                <p>Obtiene las fechas mínima y máxima de los datos disponibles en la base de datos</p>
-                <code>http://localhost:3000/api/sensores/rango-fechas</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/rango-fechas', 'rango')">🔍 Probar Endpoint</button>
-                <div id="rango" class="response"></div>
-            </div>
-
-            <!-- Estadísticas por Hora -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>🕐 Estadísticas por Hora</h3>
-                <p>Agrupa datos por hora del día con promedios, máximos y mínimos</p>
-                <code>http://localhost:3000/api/sensores/estadisticas/hora</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/estadisticas/hora', 'hora')">🔍 Probar Endpoint</button>
-                <div id="hora" class="response"></div>
-            </div>
-
-            <!-- Estadísticas por Día -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>📆 Estadísticas por Día</h3>
-                <p>Agrupa datos por día (últimos 7 días por defecto, configurable)</p>
-                <code>http://localhost:3000/api/sensores/estadisticas/dia?dias=7</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/estadisticas/dia?dias=7', 'dia')">🔍 Probar Endpoint</button>
-                <div id="dia" class="response"></div>
-            </div>
-
-            <!-- Resumen General -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>📈 Resumen General</h3>
-                <p>Estadísticas globales: promedio, máximo, mínimo, desviación estándar y batería</p>
-                <code>http://localhost:3000/api/estadisticas/resumen</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/estadisticas/resumen', 'resumen')">🔍 Probar Endpoint</button>
-                <div id="resumen" class="response"></div>
-            </div>
-
-            <!-- Alertas -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>⚠️ Alertas de Ruido</h3>
-                <p>Valores fuera del rango configurado (por defecto: 50-80 dB)</p>
-                <code>http://localhost:3000/api/sensores/alertas?umbralBajo=50&umbralAlto=80</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/alertas', 'alertas')">🔍 Probar Endpoint</button>
-                <div id="alertas" class="response"></div>
-            </div>
-
-            <!-- Búsqueda Avanzada -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>🔎 Búsqueda Avanzada</h3>
-                <p>Busca por texto (dispositivo, dirección), fechas y rango de decibeles</p>
-                <code>http://localhost:3000/api/sensores/buscar?texto=008ac7ec&limit=10</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/sensores/buscar?limit=10', 'buscar')">🔍 Probar Endpoint</button>
-                <div id="buscar" class="response"></div>
-            </div>
-
-            <!-- Exportar CSV -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>💾 Exportar a CSV</h3>
-                <p>Descarga datos en formato CSV compatible con Excel (UTF-8 con BOM)</p>
-                <code>http://localhost:3000/api/sensores/exportar/csv</code>
-                <button class="btn" onclick="descargarCSV()">⬇️ Descargar CSV</button>
-            </div>
-
-            <!-- Estadísticas por Hora (Resumen) -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>🕒 Stats por Hora (Todos los Días)</h3>
-                <p>Agrupación por hora con datos acumulados de todos los días disponibles</p>
-                <code>http://localhost:3000/api/estadisticas/por-hora</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/estadisticas/por-hora', 'porhora')">🔍 Probar Endpoint</button>
-                <div id="porhora" class="response"></div>
-            </div>
-
-            <!-- Comparación de Días -->
-            <div class="endpoint">
-                <span class="method get">GET</span>
-                <h3>📊 Comparación de Días</h3>
-                <p>Compara estadísticas diarias entre múltiples días (máximo 90 días)</p>
-                <code>http://localhost:3000/api/estadisticas/comparacion-dias?dias=7</code>
-                <button class="btn" onclick="test('http://localhost:3000/api/estadisticas/comparacion-dias?dias=7', 'comparacion')">🔍 Probar Endpoint</button>
-                <div id="comparacion" class="response"></div>
             </div>
         </div>
+    </header>
 
-        <footer>
-            <p>✨ <strong>API Pública sin Restricciones CORS</strong> - Accesible desde cualquier origen</p>
-            <p style="margin-top: 15px; opacity: 0.9; font-size: 0.95em;">
-                Tecnologías: MongoDB + Node.js + Express.js | Sensores: LoRaWAN WS302
-            </p>
-            <p style="margin-top: 10px; opacity: 0.8; font-size: 0.85em;">
-                Colección: <code style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px;">emergentes.sonido_raw</code>
-            </p>
-        </footer>
-    </div>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <ul class="sidebar-nav">
+            <li class="nav-item">
+                <a class="nav-link active" data-section="dashboard">
+                    <i class="bi bi-grid-fill"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="devices">
+                    <i class="bi bi-router-fill"></i>
+                    <span>Dispositivos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="data">
+                    <i class="bi bi-table"></i>
+                    <span>Datos en Vivo</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="analytics">
+                    <i class="bi bi-bar-chart-fill"></i>
+                    <span>Análisis</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="export">
+                    <i class="bi bi-download"></i>
+                    <span>Exportar</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- Dashboard Section -->
+        <section id="section-dashboard" class="content-section">
+            <div class="pagetitle">
+                <h1>📊 Dashboard Principal</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Dashboard</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <!-- NUEVO: Badge informativo automático -->
+            <div class="data-info-badge" id="dataRangeBadge">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Cargando información del rango de datos...</strong>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="row">
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-blue me-3">
+                                    <i class="bi bi-card-list"></i>
+                                </div>
+                                <div>
+                                    <h6 id="totalMediciones">0</h6>
+                                    <p class="label mb-0">Total Mediciones</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-green me-3">
+                                    <i class="bi bi-router-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 id="totalDispositivos">0</h6>
+                                    <p class="label mb-0">Dispositivos Activos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-orange me-3">
+                                    <i class="bi bi-volume-up-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 id="promedioLAeq">0.0</h6>
+                                    <p class="label mb-0">LAeq Promedio (dB)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-red me-3">
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 id="maxLAeq">0.0</h6>
+                                    <p class="label mb-0">LAeq Máximo (dB)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">📈 Niveles de Ruido por Hora</h5>
+                            <div class="chart-container">
+                                <canvas id="soundLevelsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">🏆 Top 5 Dispositivos</h5>
+                            <div class="chart-container">
+                                <canvas id="deviceComparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title" id="weeklyTrendTitle">📅 Tendencia Temporal</h5>
+                            <div class="chart-container">
+                                <canvas id="weeklyTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Devices Section -->
+        <section id="section-devices" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>📱 Dispositivos LoRaWAN</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Dispositivos</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="row" id="devicesGrid">
+                <!-- Devices will be loaded here -->
+            </div>
+        </section>
+
+        <!-- Data Section -->
+        <section id="section-data" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>📊 Datos en Tiempo Real</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Datos</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Últimas 100 Mediciones</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="dataTable">
+                            <thead>
+                                <tr>
+                                    <th>Fecha/Hora</th>
+                                    <th>Dispositivo</th>
+                                    <th>DevAddr</th>
+                                    <th>LAeq (dB)</th>
+                                    <th>LAI</th>
+                                    <th>LAImax</th>
+                                    <th>Batería</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section id="section-analytics" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>📊 Análisis Temporal</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Análisis</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">📅 Análisis por Día de la Semana</h5>
+                            <div class="chart-container">
+                                <canvas id="weekdayChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">📈 Comparación Temporal</h5>
+                            <div class="chart-container">
+                                <canvas id="comparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Export Section -->
+        <section id="section-export" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>💾 Exportar Datos</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Exportar</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Configuración de Exportación</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Fecha Inicio</label>
+                                <input type="date" class="form-control" id="exportFechaInicio">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Fecha Fin</label>
+                                <input type="date" class="form-control" id="exportFechaFin">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Límite de Registros</label>
+                                <input type="number" class="form-control" id="exportLimit" value="10000" max="50000">
+                                <small class="text-muted">Máximo: 50,000 registros</small>
+                            </div>
+                            <button class="btn btn-export w-100" onclick="exportarCSV()">
+                                <i class="bi bi-download me-2"></i>Descargar CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Información del Archivo</h5>
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle me-2"></i>Campos Incluidos</h6>
+                                <ul class="mt-2 mb-0">
+                                    <li>Fecha y hora completa</li>
+                                    <li>Nombre del dispositivo</li>
+                                    <li>Dirección del dispositivo (DevAddr)</li>
+                                    <li>LAeq - Nivel de sonido equivalente</li>
+                                    <li>LAI - Promedio con ponderación temporal</li>
+                                    <li>LAImax - Nivel máximo registrado</li>
+                                    <li>Nivel de batería (%)</li>
+                                    <li>Frecuencia de transmisión</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        const API_BASE = 'http://localhost:3000';
-        let serverOnline = false;
-        const responseTimes = {};
+        // ========== CONFIGURACIÓN ==========
+        const API_BASE = 'http://localhost:3000/api';
+        let charts = {};
+        
+        // Variable para almacenar el rango de fechas detectado
+        let dataRange = {
+            minDate: null,
+            maxDate: null,
+            diasDisponibles: 0
+        };
+        
+        // ========== UTILIDADES ==========
+        function logError(context, error, data = null) {
+            console.group(`❌ ERROR en ${context}`);
+            console.error('Error:', error);
+            if (data) console.log('Datos recibidos:', JSON.stringify(data, null, 2));
+            console.trace();
+            console.groupEnd();
+        }
 
-        // Verificar estado del servidor al cargar
-        window.addEventListener('DOMContentLoaded', async () => {
-            await checkServerStatus();
-            await loadDatabaseInfo();
+        function logSuccess(context, data) {
+            console.group(`✅ ÉXITO en ${context}`);
+            console.log('Datos:', data);
+            console.groupEnd();
+        }
+
+        function toNumber(value, defaultValue = 0) {
+            if (value === null || value === undefined || value === '') {
+                return defaultValue;
+            }
+            const num = parseFloat(value);
+            return isNaN(num) ? defaultValue : num;
+        }
+
+        function formatNumber(value, decimals = 1) {
+            const num = toNumber(value);
+            return num.toFixed(decimals);
+        }
+
+        // ========== DETECCIÓN AUTOMÁTICA DE RANGO DE FECHAS ==========
+        async function detectarRangoDatos() {
+            try {
+                console.log('🔍 Detectando rango automático de datos...');
+                
+                const resumen = await fetchAPI('/estadisticas/resumen');
+                
+                if (resumen.success && resumen.rangoFechas) {
+                    dataRange.minDate = new Date(resumen.rangoFechas.inicio);
+                    dataRange.maxDate = new Date(resumen.rangoFechas.fin);
+                    dataRange.diasDisponibles = Math.ceil((dataRange.maxDate - dataRange.minDate) / (1000 * 60 * 60 * 24));
+                    
+                    const formatoFecha = (fecha) => {
+                        return fecha.toLocaleDateString('es-CO', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        });
+                    };
+                    
+                    const badge = document.getElementById('dataRangeBadge');
+                    badge.innerHTML = `
+                        <i class="bi bi-calendar-range-fill me-2"></i>
+                        <strong>Datos disponibles:</strong> ${formatoFecha(dataRange.minDate)} - ${formatoFecha(dataRange.maxDate)} 
+                        (${dataRange.diasDisponibles} días de mediciones)
+                    `;
+                    
+                    console.log('✅ Rango detectado:', dataRange);
+                    return true;
+                }
+                
+                console.warn('⚠️  No se pudo detectar el rango de fechas');
+                return false;
+                
+            } catch (error) {
+                console.error('❌ Error detectando rango:', error);
+                const badge = document.getElementById('dataRangeBadge');
+                badge.innerHTML = `
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>No se pudo detectar el rango de datos.</strong> Usando valores por defecto.
+                `;
+                badge.style.borderLeft = '4px solid var(--warning)';
+                badge.style.background = 'rgba(245, 158, 11, 0.1)';
+                return false;
+            }
+        }
+
+        // ========== DETERMINAR DÍAS ÓPTIMOS PARA GRÁFICAS ==========
+        function determinarDiasOptimos() {
+            // Si hay menos de 7 días de datos, usar todos los disponibles
+            if (dataRange.diasDisponibles <= 7) {
+                return dataRange.diasDisponibles;
+            }
+            // Si hay menos de 30 días, usar 7-14 días
+            else if (dataRange.diasDisponibles <= 30) {
+                return Math.min(14, dataRange.diasDisponibles);
+            }
+            // Si hay más de 30 días, usar los últimos 30
+            else {
+                return 30;
+            }
+        }
+
+        // ========== SCROLL HEADER ==========
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
         });
 
-        // Verificar estado del servidor
+        // ========== INICIALIZACIÓN ==========
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 Iniciando aplicación...');
+            await checkServerStatus();
+            await detectarRangoDatos(); // ✨ NUEVO: Detectar rango automático
+            await loadDashboard();
+            setupNavigation();
+        });
+
+        // ========== VERIFICAR SERVIDOR ==========
         async function checkServerStatus() {
-            const statusIndicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            
             try {
-                const startTime = performance.now();
-                const response = await fetch(`${API_BASE}/api/health`, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
-                const endTime = performance.now();
-                const responseTime = Math.round(endTime - startTime);
-                
+                const response = await fetch(`${API_BASE}/health`);
                 const data = await response.json();
+                logSuccess('checkServerStatus', data);
+                
+                const statusElement = document.getElementById('serverStatus');
+                const statusText = document.getElementById('statusText');
                 
                 if (data.status === 'OK') {
-                    serverOnline = true;
-                    statusIndicator.className = 'status-indicator status-online';
-                    statusText.innerHTML = `Servidor en línea ✓ <small>(${responseTime}ms)</small>`;
+                    statusElement.classList.add('online');
+                    statusElement.classList.remove('offline');
+                    statusElement.querySelector('.status-dot').classList.add('online');
+                    statusElement.querySelector('.status-dot').classList.remove('offline');
+                    statusText.textContent = 'Sistema Operativo';
                 } else {
-                    serverOnline = false;
-                    statusIndicator.className = 'status-indicator status-offline';
-                    statusText.textContent = 'Servidor degradado ⚠️';
+                    statusElement.classList.add('offline');
+                    statusElement.querySelector('.status-dot').classList.add('offline');
+                    statusText.textContent = 'Sistema Degradado';
                 }
             } catch (error) {
-                serverOnline = false;
-                statusIndicator.className = 'status-indicator status-offline';
-                statusText.textContent = 'Servidor desconectado ✗';
-                console.error('Error verificando servidor:', error);
+                logError('checkServerStatus', error);
+                const statusElement = document.getElementById('serverStatus');
+                const statusText = document.getElementById('statusText');
+                statusElement.classList.add('offline');
+                statusElement.querySelector('.status-dot').classList.add('offline');
+                statusText.textContent = 'Sistema Desconectado';
             }
         }
 
-        // Cargar información de la base de datos
-        async function loadDatabaseInfo() {
-            const dbDetails = document.getElementById('dbDetails');
-            const statsGrid = document.getElementById('statsGrid');
-            
-            if (!serverOnline) {
-                dbDetails.textContent = 'Base de datos no disponible';
-                return;
-            }
-
-            try {
-                // Obtener resumen de estadísticas
-                const resumenRes = await fetch(`${API_BASE}/api/estadisticas/resumen`);
-                const resumen = await resumenRes.json();
-
-                // Obtener dispositivos
-                const devicesRes = await fetch(`${API_BASE}/api/sensores/devices`);
-                const devices = await devicesRes.json();
-
-                if (resumen.success && resumen.data) {
-                    const data = resumen.data;
-                    dbDetails.innerHTML = `
-                        <strong>BD Conectada:</strong> MongoDB | 
-                        <strong>Colección:</strong> emergentes.sonido_raw
-                    `;
-
-                    // Mostrar estadísticas
-                    document.getElementById('totalDocs').textContent = 
-                        data.totalMediciones?.toLocaleString('es-CO') || '0';
-                    document.getElementById('totalDevices').textContent = 
-                        devices.data?.length || '0';
-                    document.getElementById('avgLAeq').textContent = 
-                        data.promedioLAeq ? `${data.promedioLAeq.toFixed(1)} dB` : '-';
+        // ========== NAVEGACIÓN ==========
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', async (e) => {
+                    e.preventDefault();
                     
-                    statsGrid.style.display = 'grid';
-                } else {
-                    dbDetails.textContent = 'BD vacía o sin datos';
-                }
-            } catch (error) {
-                dbDetails.textContent = 'Error al cargar información de BD';
-                console.error('Error cargando BD info:', error);
-            }
-        }
-
-        // Función principal para probar endpoints
-        async function test(endpoint, id) {
-            const responseDiv = document.getElementById(id);
-            const btn = event.target;
-            
-            // Preparar UI
-            responseDiv.className = 'response active';
-            responseDiv.innerHTML = '<div class="response-header"><span>⏳ Cargando...</span></div>';
-            btn.disabled = true;
-
-            try {
-                // Medir tiempo de respuesta
-                const startTime = performance.now();
-                const response = await fetch(endpoint, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
-                const endTime = performance.now();
-                const responseTime = Math.round(endTime - startTime);
-                responseTimes[id] = responseTime;
-
-                // Parsear respuesta
-                const contentType = response.headers.get('content-type');
-                let data;
-                
-                if (contentType && contentType.includes('application/json')) {
-                    data = await response.json();
-                } else {
-                    const text = await response.text();
-                    data = { error: 'Respuesta no es JSON', content: text };
-                }
-
-                // Verificar si la respuesta está vacía o sin datos
-                const isEmpty = !data.data || 
-                               (Array.isArray(data.data) && data.data.length === 0) ||
-                               (typeof data.data === 'object' && Object.keys(data.data).length === 0);
-
-                // Formatear respuesta
-                const formattedData = JSON.stringify(data, null, 2);
-                const dataId = `data-${id}-${Date.now()}`;
-
-                if (response.ok) {
-                    if (isEmpty) {
-                        responseDiv.className = 'response active empty';
-                        responseDiv.innerHTML = `
-                            <div class="response-header">
-                                <span class="response-time">⚠️ Respuesta vacía | ${responseTime}ms</span>
-                                <button class="copy-btn" onclick="copyToClipboard('${dataId}')">📋 Copiar</button>
-                            </div>
-                            <pre id="${dataId}">${formattedData}
-
-⚠️ NOTA: La respuesta está vacía o no contiene datos.
-💡 Verifica que haya registros en la base de datos para este filtro.</pre>
-                        `;
-                    } else {
-                        responseDiv.className = 'response active success';
-                        const recordCount = Array.isArray(data.data) ? data.data.length : 1;
-                        responseDiv.innerHTML = `
-                            <div class="response-header">
-                                <span class="response-time">✅ ${response.status} OK | ${responseTime}ms | ${recordCount} registro(s)</span>
-                                <button class="copy-btn" onclick="copyToClipboard('${dataId}')">📋 Copiar</button>
-                            </div>
-                            <pre id="${dataId}">${formattedData}</pre>
-                        `;
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    
+                    document.querySelectorAll('.content-section').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    
+                    const sectionId = link.getAttribute('data-section');
+                    const section = document.getElementById(`section-${sectionId}`);
+                    if (section) {
+                        section.style.display = 'block';
+                        await loadSectionData(sectionId);
                     }
-                } else {
-                    responseDiv.className = 'response active error';
-                    responseDiv.innerHTML = `
-                        <div class="response-header">
-                            <span class="response-time">❌ Error ${response.status} | ${responseTime}ms</span>
-                            <button class="copy-btn" onclick="copyToClipboard('${dataId}')">📋 Copiar</button>
-                        </div>
-                        <pre id="${dataId}">${formattedData}</pre>
-                    `;
-                }
-            } catch (error) {
-                responseDiv.className = 'response active error';
-                responseDiv.innerHTML = `
-                    <div class="response-header">
-                        <span class="response-time">❌ Error de conexión</span>
-                    </div>
-                    <pre>❌ Error: ${error.message}
-
-🔍 Detalles:
-- Endpoint: ${endpoint}
-- Error: ${error.name}
-- Mensaje: ${error.message}
-
-💡 Sugerencias:
-1. Verifica que el servidor esté corriendo en ${API_BASE}
-2. Comprueba que MongoDB esté conectado
-3. Revisa la consola del servidor para más detalles</pre>
-                `;
-                console.error('Error en test():', error);
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        // Copiar al portapapeles
-        function copyToClipboard(elementId) {
-            const element = document.getElementById(elementId);
-            const text = element.textContent;
-            
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = '✅ Copiado';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                }, 2000);
-            }).catch(err => {
-                console.error('Error copiando:', err);
-                alert('Error al copiar al portapapeles');
+                });
             });
         }
 
-        // Descargar CSV
-        function descargarCSV() {
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            loadingOverlay.classList.add('active');
-            
-            window.open(`${API_BASE}/api/sensores/exportar/csv`, '_blank');
-            
-            setTimeout(() => {
-                loadingOverlay.classList.remove('active');
-            }, 2000);
+        // ========== CARGAR SECCIÓN ==========
+        async function loadSectionData(sectionId) {
+            showLoading();
+            try {
+                console.log(`📂 Cargando sección: ${sectionId}`);
+                switch(sectionId) {
+                    case 'dashboard':
+                        await loadDashboard();
+                        break;
+                    case 'devices':
+                        await loadDevices();
+                        break;
+                    case 'data':
+                        await loadDataTable();
+                        break;
+                    case 'analytics':
+                        await loadAnalytics();
+                        break;
+                    case 'export':
+                        setupExportDates();
+                        break;
+                }
+            } catch (error) {
+                logError(`loadSectionData(${sectionId})`, error);
+            } finally {
+                hideLoading();
+            }
         }
 
-        // Verificar estado cada 30 segundos
-        setInterval(checkServerStatus, 30000);
+        // ========== DASHBOARD CON DETECCIÓN AUTOMÁTICA ==========
+        async function loadDashboard() {
+            try {
+                // Cargar resumen
+                const resumen = await fetchAPI('/estadisticas/resumen');
+                logSuccess('Resumen', resumen);
+                
+                if (resumen.success && resumen.data) {
+                    const data = resumen.data;
+                    document.getElementById('totalMediciones').textContent = 
+                        toNumber(data.totalMediciones, 0).toLocaleString('es-CO');
+                    document.getElementById('promedioLAeq').textContent = 
+                        formatNumber(data.promedioLAeq, 1);
+                    document.getElementById('maxLAeq').textContent = 
+                        formatNumber(data.maxLAeq, 1);
+                }
+
+                // Cargar dispositivos
+                const devices = await fetchAPI('/sensores/devices');
+                logSuccess('Devices', devices);
+                
+                if (devices.success) {
+                    document.getElementById('totalDispositivos').textContent = 
+                        toNumber(devices.total, 0).toString();
+                }
+
+                // ✨ USAR DÍAS ÓPTIMOS DETECTADOS AUTOMÁTICAMENTE
+                const diasOptimos = determinarDiasOptimos();
+                console.log(`📊 Usando ${diasOptimos} días para gráficas`);
+
+                // Actualizar título de tendencia
+                document.getElementById('weeklyTrendTitle').textContent = 
+                    `📅 Tendencia Últimos ${diasOptimos} Días`;
+
+                // Cargar gráficos con días óptimos
+                await loadHourlyChart(diasOptimos);
+                await loadDeviceComparisonChart(diasOptimos);
+                await loadWeeklyTrendChart(diasOptimos);
+                
+            } catch (error) {
+                logError('loadDashboard', error);
+            }
+        }
+
+        async function loadHourlyChart(dias) {
+            try {
+                const data = await fetchAPI(`/estadisticas/por-hora?dias=${dias}`);
+                logSuccess('Por hora', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    const ctx = document.getElementById('soundLevelsChart');
+                    if (charts.soundLevels) charts.soundLevels.destroy();
+                    
+                    const validData = data.data.filter(d => 
+                        d.promedioLAeq !== null && !isNaN(d.promedioLAeq)
+                    );
+                    
+                    if (validData.length === 0) {
+                        console.warn('⚠️  No hay datos válidos para gráfico por hora');
+                        return;
+                    }
+                    
+                    charts.soundLevels = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: validData.map(d => `${d._id}:00`),
+                            datasets: [{
+                                label: 'LAeq Promedio',
+                                data: validData.map(d => toNumber(d.promedioLAeq)),
+                                borderColor: 'rgb(79, 70, 229)',
+                                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }, {
+                                label: 'LAeq Máximo',
+                                data: validData.map(d => toNumber(d.maxLAeq)),
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.4,
+                                fill: false,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { 
+                                    display: true, 
+                                    position: 'top',
+                                    labels: { font: { weight: 'bold' } }
+                                },
+                                title: {
+                                    display: true,
+                                    text: `Promedio de ${dias} días`,
+                                    font: { size: 12 }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Nivel (dB)' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadHourlyChart', error);
+            }
+        }
+
+        async function loadDeviceComparisonChart(dias) {
+            try {
+                const data = await fetchAPI(`/estadisticas/comparacion-dispositivos?dias=${dias}`);
+                logSuccess('Comparación dispositivos', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    const ctx = document.getElementById('deviceComparisonChart');
+                    if (charts.deviceComparison) charts.deviceComparison.destroy();
+                    
+                    const top5 = data.data.slice(0, 5);
+                    
+                    charts.deviceComparison = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: top5.map(d => d.deviceName || d._id),
+                            datasets: [{
+                                label: 'LAeq Promedio',
+                                data: top5.map(d => toNumber(d.promedioLAeq)),
+                                backgroundColor: [
+                                    'rgba(79, 70, 229, 0.8)',
+                                    'rgba(16, 185, 129, 0.8)',
+                                    'rgba(245, 158, 11, 0.8)',
+                                    'rgba(239, 68, 68, 0.8)',
+                                    'rgba(6, 182, 212, 0.8)'
+                                ],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: `Últimos ${dias} días`,
+                                    font: { size: 12 }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'dB' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadDeviceComparisonChart', error);
+            }
+        }
+
+        async function loadWeeklyTrendChart(dias) {
+            try {
+                const data = await fetchAPI(`/estadisticas/comparacion-dias?dias=${dias}`);
+                logSuccess('Comparación días', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    const ctx = document.getElementById('weeklyTrendChart');
+                    if (charts.weeklyTrend) charts.weeklyTrend.destroy();
+                    
+                    charts.weeklyTrend = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.data.map(d => d.fecha),
+                            datasets: [{
+                                label: 'Promedio',
+                                data: data.data.map(d => toNumber(d.promedioLAeq)),
+                                borderColor: 'rgb(79, 70, 229)',
+                                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }, {
+                                label: 'Máximo',
+                                data: data.data.map(d => toNumber(d.maxLAeq)),
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.4,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true } },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Nivel (dB)' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadWeeklyTrendChart', error);
+            }
+        }
+
+        // ========== DISPOSITIVOS ==========
+        async function loadDevices() {
+            try {
+                const data = await fetchAPI('/sensores/devices');
+                logSuccess('Devices detail', data);
+                
+                if (data.success && data.data) {
+                    const grid = document.getElementById('devicesGrid');
+                    grid.innerHTML = '';
+                    
+                    data.data.forEach(device => {
+                        const bateria = toNumber(device.ultimoBateria);
+                        const laeq = toNumber(device.ultimoLAeq);
+                        const totalMed = toNumber(device.totalMediciones, 0);
+                        
+                        const batteryStatus = bateria >= 80 ? 'success' :
+                                            bateria >= 50 ? 'info' :
+                                            bateria >= 30 ? 'warning' : 'danger';
+                        
+                        const card = `
+                            <div class="col-lg-4 col-md-6">
+                                <div class="device-card">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-router-fill text-primary me-2"></i>
+                                            ${device.deviceName || device.devAddr}
+                                        </h6>
+                                        <span class="badge bg-${batteryStatus}">${formatNumber(bateria, 1)}%</span>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">DevAddr</small>
+                                            <strong>${device.devAddr}</strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">LAeq Actual</small>
+                                            <strong>${formatNumber(laeq, 1)} dB</strong>
+                                        </div>
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">Última medición</small>
+                                            <strong>${new Date(device.ultimaMedicion).toLocaleString('es-CO')}</strong>
+                                        </div>
+                                        <div class="col-12">
+                                            <span class="badge bg-light text-dark">
+                                                📊 ${totalMed.toLocaleString('es-CO')} mediciones
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        grid.innerHTML += card;
+                    });
+                }
+            } catch (error) {
+                logError('loadDevices', error);
+            }
+        }
+
+        // ========== TABLA DE DATOS ==========
+        async function loadDataTable() {
+            try {
+                const data = await fetchAPI('/sensores/ultimas?cantidad=100');
+                logSuccess('Últimas mediciones', data);
+                
+                if (data.success && data.data) {
+                    const tbody = document.querySelector('#dataTable tbody');
+                    tbody.innerHTML = '';
+                    
+                    data.data.forEach(item => {
+                        const laeq = toNumber(item.object?.LAeq);
+                        const lai = toNumber(item.object?.LAI);
+                        const laimax = toNumber(item.object?.LAImax);
+                        const bateria = toNumber(item.object?.battery);
+                        
+                        const row = `
+                            <tr>
+                                <td>${new Date(item.time).toLocaleString('es-CO')}</td>
+                                <td><strong>${item.deviceInfo?.deviceName || 'N/A'}</strong></td>
+                                <td><code class="badge bg-secondary">${item.devAddr}</code></td>
+                                <td><strong class="text-primary">${formatNumber(laeq, 1)} dB</strong></td>
+                                <td>${formatNumber(lai, 1)}</td>
+                                <td>${formatNumber(laimax, 1)}</td>
+                                <td><span class="badge bg-${bateria >= 50 ? 'success' : 'warning'}">${formatNumber(bateria, 1)}%</span></td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+                }
+            } catch (error) {
+                logError('loadDataTable', error);
+            }
+        }
+
+        // ========== ANÁLISIS ==========
+        async function loadAnalytics() {
+            try {
+                const diasOptimos = determinarDiasOptimos();
+                
+                const weekdayData = await fetchAPI(`/estadisticas/por-dia-semana?dias=${diasOptimos}`);
+                logSuccess('Por día semana', weekdayData);
+                
+                if (weekdayData.success && weekdayData.data && weekdayData.data.length > 0) {
+                    const ctx = document.getElementById('weekdayChart');
+                    if (charts.weekday) charts.weekday.destroy();
+                    
+                    charts.weekday = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: weekdayData.data.map(d => d.diaSemana),
+                            datasets: [{
+                                label: 'Promedio LAeq (dB)',
+                                data: weekdayData.data.map(d => toNumber(d.promedioLAeq)),
+                                backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                const compData = await fetchAPI(`/estadisticas/comparacion-dias?dias=${diasOptimos}`);
+                logSuccess('Comparación días analytics', compData);
+                
+                if (compData.success && compData.data && compData.data.length > 0) {
+                    const ctx = document.getElementById('comparisonChart');
+                    if (charts.comparison) charts.comparison.destroy();
+                    
+                    charts.comparison = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: compData.data.map(d => d.fecha),
+                            datasets: [{
+                                label: 'Promedio',
+                                data: compData.data.map(d => toNumber(d.promedioLAeq)),
+                                borderColor: 'rgb(79, 70, 229)',
+                                tension: 0.4
+                            }, {
+                                label: 'Máximo',
+                                data: compData.data.map(d => toNumber(d.maxLAeq)),
+                                borderColor: 'rgb(239, 68, 68)',
+                                tension: 0.4
+                            }, {
+                                label: 'Mínimo',
+                                data: compData.data.map(d => toNumber(d.minLAeq)),
+                                borderColor: 'rgb(16, 185, 129)',
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadAnalytics', error);
+            }
+        }
+
+        // ========== EXPORTAR ==========
+        function setupExportDates() {
+            // Usar el rango detectado automáticamente
+            if (dataRange.minDate && dataRange.maxDate) {
+                document.getElementById('exportFechaInicio').value = 
+                    dataRange.minDate.toISOString().split('T')[0];
+                document.getElementById('exportFechaFin').value = 
+                    dataRange.maxDate.toISOString().split('T')[0];
+            } else {
+                const today = new Date();
+                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                
+                document.getElementById('exportFechaInicio').value = weekAgo.toISOString().split('T')[0];
+                document.getElementById('exportFechaFin').value = today.toISOString().split('T')[0];
+            }
+        }
+
+        function exportarCSV() {
+            const fechaInicio = document.getElementById('exportFechaInicio').value;
+            const fechaFin = document.getElementById('exportFechaFin').value;
+            const limit = document.getElementById('exportLimit').value;
+            
+            let url = `${API_BASE}/sensores/exportar/csv?limit=${limit}`;
+            if (fechaInicio) url += `&fechaInicio=${fechaInicio}T00:00:00`;
+            if (fechaFin) url += `&fechaFin=${fechaFin}T23:59:59`;
+            
+            console.log('📥 Descargando CSV:', url);
+            showLoading();
+            window.open(url, '_blank');
+            setTimeout(hideLoading, 2000);
+        }
+
+        // ========== UTILIDADES ==========
+        async function fetchAPI(endpoint) {
+            try {
+                console.log(`🌐 Fetching: ${API_BASE}${endpoint}`);
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                logError(`fetchAPI(${endpoint})`, error);
+                throw error;
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
+        // ========== AUTO-REFRESH ==========
+        setInterval(checkServerStatus, 60000); // Cada 60 segundos
     </script>
+
 </body>
 </html>
