@@ -9,6 +9,11 @@ const path = require('path');
 const sensorRoutes = require('./routes/sensores');
 const estadisticasRoutes = require('./routes/estadisticas');
 const healthRoutes = require('./routes/health');
+const backupRoutes = require('./routes/backup');
+
+// Importar servicios de backup
+const { connectMySQL, closeMySQL } = require('./config/mysql');
+const backupService = require('./services/backupService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,12 +61,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.use('/api/sensores', sensorRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
 app.use('/api/health', healthRoutes);
+app.use('/api/backup', backupRoutes); // 🔥 NUEVA RUTA DE BACKUP
 
 // Ruta API info (solo JSON, no HTML)
 app.get('/api', (req, res) => {
     res.json({
         message: 'API de Monitoreo de Ruido Ambiental - LoRaWAN WS302',
-        version: '3.0.0',
+        version: '3.1.0', // 🔥 Actualizada versión
         database: 'emergentes',
         coleccion: 'sonido_raw',
         documentacion: `${req.protocol}://${req.get('host')}/`,
@@ -99,6 +105,13 @@ app.get('/api', (req, res) => {
                 estadoBaterias: '/api/estadisticas/estado-baterias',
                 historialBateria: '/api/estadisticas/historial-bateria/:devAddr'
             },
+            // 🔥 NUEVOS ENDPOINTS DE BACKUP
+            backup: {
+                status: '/api/backup/status',
+                execute: '/api/backup/execute',
+                logs: '/api/backup/logs',
+                verify: '/api/backup/verify'
+            },
             health: '/api/health'
         },
         ejemplos: {
@@ -125,7 +138,13 @@ app.get('/api', (req, res) => {
             historialBateria: '/api/estadisticas/historial-bateria/008ac7ec?dias=30',
             
             // Exportación
-            exportarCSV: '/api/sensores/exportar/csv?fechaInicio=2024-11-01&fechaFin=2024-11-30&limit=10000'
+            exportarCSV: '/api/sensores/exportar/csv?fechaInicio=2024-11-01&fechaFin=2024-11-30&limit=10000',
+            
+            // 🔥 BACKUP
+            estadoBackup: '/api/backup/status',
+            ejecutarBackup: '/api/backup/execute',
+            historialBackup: '/api/backup/logs?limit=20',
+            verificarIntegridad: '/api/backup/verify'
         },
         filtros_disponibles: {
             fechas: 'fechaInicio, fechaFin (formato ISO8601)',
@@ -210,7 +229,7 @@ async function connectMongoDB() {
         const count = await Sensor.countDocuments();
         console.log(`📄 Documentos en sonido_raw: ${count.toLocaleString('es-CO')}`);
         
-        // 🔥 NUEVO: Verificar rango de fechas de los datos
+        // Verificar rango de fechas de los datos
         const dateRangeResult = await Sensor.aggregate([
             {
                 $group: {
@@ -247,14 +266,54 @@ mongoose.connection.on('reconnected', () => {
     console.log('✅ MongoDB reconectado');
 });
 
+// ==================== 🔥 SISTEMA DE BACKUP ====================
+
+async function initializeBackupSystem() {
+    try {
+        console.log('\n🔄 Inicializando sistema de backup...');
+        
+        // Conectar MySQL
+        await connectMySQL();
+        
+        // Inicializar tablas
+        await backupService.initializeTables();
+        
+        // Programar backup diario automático
+        backupService.scheduleDaily();
+        
+        console.log('✅ Sistema de backup inicializado correctamente\n');
+        
+        // Obtener estadísticas iniciales
+        const stats = await backupService.getBackupStats();
+        if (stats.database) {
+            console.log('📊 Estado actual del backup:');
+            console.log(`   • Dispositivos en MySQL: ${stats.database.devices}`);
+            console.log(`   • Mediciones en MySQL: ${stats.database.measurements.toLocaleString('es-CO')}`);
+            if (stats.last30Days) {
+                console.log(`   • Backups últimos 30 días: ${stats.last30Days.total_backups}`);
+                console.log(`   • Último backup: ${stats.last30Days.last_backup || 'Nunca'}`);
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error inicializando sistema de backup:', error.message);
+        console.log('⚠️  El servidor continuará sin sistema de backup');
+    }
+}
+
 // ==================== INICIAR SERVIDOR ====================
 
 connectMongoDB();
 
+// 🔥 Inicializar backup después de MongoDB
+setTimeout(() => {
+    initializeBackupSystem();
+}, 2000); // Esperar 2 segundos después de conectar MongoDB
+
 const server = app.listen(PORT, () => {
-    console.log(`\n${'='.repeat(60)}`);
+    console.log(`\n${'='.repeat(70)}`);
     console.log(`🚀 Servidor API de Monitoreo Ambiental WS302`);
-    console.log(`${'='.repeat(60)}`);
+    console.log(`${'='.repeat(70)}`);
     console.log(`\n📍 URL Principal: http://localhost:${PORT}`);
     console.log(`📄 Dashboard HTML: http://localhost:${PORT}/`);
     console.log(`📊 API Info (JSON): http://localhost:${PORT}/api`);
@@ -263,6 +322,10 @@ const server = app.listen(PORT, () => {
     console.log(`   • Puerto: ${PORT}`);
     console.log(`   • CORS: Abierto (*)`);
     console.log(`   • Compresión: Habilitada`);
+    console.log(`   • Backup automático: ${process.env.BACKUP_ENABLED === 'true' ? 'Activado' : 'Desactivado'}`);
+    if (process.env.BACKUP_ENABLED === 'true') {
+        console.log(`   • Hora de backup: ${process.env.BACKUP_TIME || '02:00'} (hora Colombia)`);
+    }
     console.log(`\n💡 Endpoints principales:`);
     console.log(`   ❤️  Health Check:     GET /api/health`);
     console.log(`   📱 Dispositivos:      GET /api/sensores/devices`);
@@ -270,7 +333,12 @@ const server = app.listen(PORT, () => {
     console.log(`   📈 Tendencias:        GET /api/estadisticas/tendencias?dias=30`);
     console.log(`   🔋 Estado Baterías:   GET /api/estadisticas/estado-baterias`);
     console.log(`   💾 Exportar CSV:      GET /api/sensores/exportar/csv`);
-    console.log(`\n${'='.repeat(60)}\n`);
+    console.log(`\n🔥 Endpoints de Backup:`);
+    console.log(`   📊 Estado backup:     GET /api/backup/status`);
+    console.log(`   ▶️  Ejecutar backup:   POST /api/backup/execute`);
+    console.log(`   📝 Historial backup:  GET /api/backup/logs`);
+    console.log(`   ✅ Verificar datos:   GET /api/backup/verify`);
+    console.log(`\n${'='.repeat(70)}\n`);
 });
 
 // Configuración de timeouts
@@ -285,9 +353,9 @@ const gracefulShutdown = async (signal) => {
     if (isShuttingDown) return;
     
     isShuttingDown = true;
-    console.log(`\n${'='.repeat(60)}`);
+    console.log(`\n${'='.repeat(70)}`);
     console.log(`📴 Señal ${signal} recibida. Iniciando shutdown...`);
-    console.log(`${'='.repeat(60)}`);
+    console.log(`${'='.repeat(70)}`);
     
     const forceShutdownTimeout = setTimeout(() => {
         console.error('⚠️  Timeout alcanzado. Forzando cierre del servidor...');
@@ -302,6 +370,10 @@ const gracefulShutdown = async (signal) => {
         });
         console.log('✅ Servidor HTTP cerrado');
         
+        // 🔥 Cerrar conexión MySQL
+        console.log('🛑 Cerrando conexión MySQL...');
+        await closeMySQL();
+        
         // Cerrar conexión MongoDB
         console.log('🛑 Cerrando conexión MongoDB...');
         await mongoose.connection.close(false);
@@ -309,7 +381,7 @@ const gracefulShutdown = async (signal) => {
         
         clearTimeout(forceShutdownTimeout);
         console.log('\n✅ Shutdown completado exitosamente');
-        console.log(`${'='.repeat(60)}\n`);
+        console.log(`${'='.repeat(70)}\n`);
         process.exit(0);
     } catch (error) {
         console.error('❌ Error durante shutdown:', error.message);
