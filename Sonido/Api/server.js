@@ -3,9 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
 const morgan = require('morgan');
-const helmet = require('helmet');
 const path = require('path');
-const rateLimit = require('express-rate-limit');
 
 // Importar rutas
 const sensorRoutes = require('./routes/sensores');
@@ -15,240 +13,325 @@ const healthRoutes = require('./routes/health');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== SEGURIDAD ====================
+// ==================== MIDDLEWARES ====================
 
-// Deshabilita el header X-Powered-By para reducir fingerprinting
-app.disable('x-powered-by');
-
-// Configura headers de seguridad HTTP con Helmet
-app.use(helmet({
-  contentSecurityPolicy: false, // Deshabilitado para API pública
-  crossOriginEmbedderPolicy: false
-}));
-
-// ==================== ACCESO PÚBLICO (SIN CORS) ====================
-
-// Configura headers para acceso público sin restricciones
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  
-  // Responde inmediatamente a peticiones OPTIONS (preflight)
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-  
-  next();
-});
-
-// ==================== RATE LIMITING ====================
-
-// Limitador global para prevenir abuso de API pública
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Máximo 100 peticiones por IP
-  message: {
-    success: false,
-    error: 'Demasiadas peticiones. Intenta de nuevo más tarde.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === '/api/health' // Excluye health check
-});
-
-app.use(globalLimiter);
-
-// ==================== MIDDLEWARE ====================
-
-// Parsea el body de las peticiones JSON y URL-encoded
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
-
-// Comprime las respuestas HTTP para reducir ancho de banda
+// Compresión de respuestas
 app.use(compression());
 
-// Logger de peticiones HTTP en consola
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+// Logging de peticiones (solo en desarrollo para mejor performance en producción)
+if (process.env.NODE_ENV !== 'production') {
+    app.use(morgan('dev'));
 } else {
-  app.use(morgan('combined'));
+    app.use(morgan('combined'));
 }
 
-// ==================== RUTAS DE API ====================
+// Parseo de JSON y URL-encoded
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check para monitoreo (sin rate limiting)
-app.use('/api/health', healthRoutes);
-
-// Rutas principales de la aplicación
-app.use('/api/sensores', sensorRoutes);
-app.use('/api/estadisticas', estadisticasRoutes);
+// CORS completamente abierto - SIN RESTRICCIONES
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', '*');
+    res.header('Access-Control-Max-Age', '86400');
+    
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
 
 // ==================== ARCHIVOS ESTÁTICOS ====================
 
-// Sirve archivos del directorio public con cache
+// Servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
-  etag: true
+    maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0, // Sin cache en dev
+    etag: true,
+    index: 'index.html'
 }));
 
-// Ruta raíz que sirve el HTML principal
+// ==================== RUTAS DE API ====================
+
+app.use('/api/sensores', sensorRoutes);
+app.use('/api/estadisticas', estadisticasRoutes);
+app.use('/api/health', healthRoutes);
+
+// Ruta API info (solo JSON, no HTML)
+app.get('/api', (req, res) => {
+    res.json({
+        message: 'API de Monitoreo de Ruido Ambiental - LoRaWAN WS302',
+        version: '3.0.0',
+        database: 'emergentes',
+        coleccion: 'sonido_raw',
+        documentacion: `${req.protocol}://${req.get('host')}/`,
+        endpoints: {
+            sensores: {
+                datos: '/api/sensores/datos',
+                ultimas: '/api/sensores/ultimas',
+                buscar: '/api/sensores/buscar',
+                devices: '/api/sensores/devices',
+                exportarCSV: '/api/sensores/exportar/csv',
+                alertas: '/api/sensores/alertas',
+                rangoFechas: '/api/sensores/rango-fechas',
+                estadisticasHora: '/api/sensores/estadisticas/hora',
+                estadisticasDia: '/api/sensores/estadisticas/dia'
+            },
+            estadisticas: {
+                // Análisis básico
+                resumen: '/api/estadisticas/resumen',
+                porHora: '/api/estadisticas/por-hora',
+                comparacionDias: '/api/estadisticas/comparacion-dias',
+                
+                // Análisis temporal avanzado
+                porDiaSemana: '/api/estadisticas/por-dia-semana',
+                tendencias: '/api/estadisticas/tendencias',
+                
+                // Análisis por dispositivo
+                comparacionDispositivos: '/api/estadisticas/comparacion-dispositivos',
+                dispositivosRanking: '/api/estadisticas/dispositivos-ranking',
+                
+                // Cumplimiento normativo
+                cumplimientoNormativo: '/api/estadisticas/cumplimiento-normativo',
+                picosRuido: '/api/estadisticas/picos-ruido',
+                
+                // Gestión de baterías
+                estadoBaterias: '/api/estadisticas/estado-baterias',
+                historialBateria: '/api/estadisticas/historial-bateria/:devAddr'
+            },
+            health: '/api/health'
+        },
+        ejemplos: {
+            // Consultas básicas
+            obtenerDatos: '/api/sensores/datos?limit=10&page=1',
+            filtrarPorDecibeles: '/api/sensores/datos?minDecibeles=50&maxDecibeles=80',
+            ultimas10: '/api/sensores/ultimas?cantidad=10',
+            dispositivos: '/api/sensores/devices',
+            
+            // Estadísticas
+            resumenCompleto: '/api/estadisticas/resumen',
+            estadisticasHora: '/api/estadisticas/por-hora?dias=7',
+            comparacionSemanal: '/api/estadisticas/comparacion-dias?dias=7',
+            patronesDiaSemana: '/api/estadisticas/por-dia-semana?dias=30',
+            
+            // Análisis avanzado
+            tendencias: '/api/estadisticas/tendencias?dias=30',
+            rankingDispositivos: '/api/estadisticas/dispositivos-ranking?metrica=promedio',
+            cumplimiento: '/api/estadisticas/cumplimiento-normativo?umbralDia=70&umbralNoche=60',
+            picosRuido: '/api/estadisticas/picos-ruido?dias=7',
+            
+            // Gestión de dispositivos
+            estadoBaterias: '/api/estadisticas/estado-baterias',
+            historialBateria: '/api/estadisticas/historial-bateria/008ac7ec?dias=30',
+            
+            // Exportación
+            exportarCSV: '/api/sensores/exportar/csv?fechaInicio=2024-11-01&fechaFin=2024-11-30&limit=10000'
+        },
+        filtros_disponibles: {
+            fechas: 'fechaInicio, fechaFin (formato ISO8601)',
+            decibeles: 'minDecibeles, maxDecibeles',
+            dispositivo: 'devAddr',
+            paginacion: 'page, limit',
+            ordenamiento: 'sort',
+            dias: 'dias (para análisis temporales)'
+        },
+        metricas_soportadas: {
+            LAeq: 'Nivel de presión sonora continuo equivalente',
+            LAI: 'Nivel de presión sonora con ponderación temporal I',
+            LAImax: 'Nivel máximo de presión sonora LAI',
+            battery: 'Nivel de batería del sensor (%)'
+        }
+    });
+});
+
+// ==================== RUTA RAÍZ ====================
+
+// La ruta raíz sirve el index.html de la carpeta public
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ==================== MANEJO DE ERRORES ====================
 
-// Handler para rutas no encontradas (404)
+// Middleware para rutas no encontradas
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Ruta no encontrada',
-    path: req.originalUrl,
-    method: req.method
-  });
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({
+            success: false,
+            error: 'Endpoint no encontrado',
+            path: req.path,
+            method: req.method,
+            timestamp: new Date().toISOString(),
+            ayuda: 'Visita GET /api para ver todos los endpoints disponibles'
+        });
+    }
+    
+    // SPA fallback - cualquier ruta no API devuelve el index.html
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Handler global de errores
+// Middleware global de manejo de errores
 app.use((err, req, res, next) => {
-  // Log del error en servidor
-  console.error('❌ Error:', {
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    path: req.path,
-    method: req.method
-  });
-  
-  // Respuesta genérica para no exponer información sensible
-  res.status(err.status || 500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Error interno del servidor' 
-      : err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+    console.error('❌ Error:', err);
+    
+    // No enviar detalles de error en producción
+    const errorDetails = process.env.NODE_ENV === 'production' 
+        ? 'Error interno del servidor'
+        : err.message;
+    
+    res.status(err.status || 500).json({
+        success: false,
+        error: errorDetails,
+        timestamp: new Date().toISOString()
+    });
 });
 
-// ==================== MONGODB ====================
+// ==================== CONEXIÓN A MONGODB ====================
 
-// Intenta conectar a MongoDB con reintentos automáticos
 async function connectMongoDB() {
-  try {
-    console.log('🔄 Conectando a MongoDB...');
-    
-    await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: process.env.DB_NAME,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      retryWrites: true,
-      retryReads: true
-    });
-    
-    console.log('✅ MongoDB conectado exitosamente');
-    console.log(`📁 Base de datos: ${process.env.DB_NAME}`);
-  } catch (error) {
-    console.error('❌ Error conectando a MongoDB:', error.message);
-    console.log('🔄 Reintentando conexión en 5 segundos...');
-    setTimeout(connectMongoDB, 5000);
-  }
+    try {
+        console.log('🔄 Conectando a MongoDB...');
+        
+        await mongoose.connect(process.env.MONGO_URI, {
+            maxPoolSize: 10,
+            minPoolSize: 2,
+            socketTimeoutMS: 45000,
+            serverSelectionTimeoutMS: 5000,
+            retryWrites: true,
+            w: 'majority'
+        });
+        
+        console.log('✅ MongoDB conectado exitosamente');
+        console.log(`📁 Base de datos: ${mongoose.connection.name}`);
+        console.log(`📊 Host: ${mongoose.connection.host}`);
+        
+        // Verificar cantidad de documentos
+        const Sensor = require('./models/Sensor');
+        const count = await Sensor.countDocuments();
+        console.log(`📄 Documentos en sonido_raw: ${count.toLocaleString('es-CO')}`);
+        
+        // 🔥 NUEVO: Verificar rango de fechas de los datos
+        const dateRangeResult = await Sensor.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    minDate: { $min: '$time' },
+                    maxDate: { $max: '$time' }
+                }
+            }
+        ]);
+        
+        if (dateRangeResult.length > 0) {
+            const minDate = new Date(dateRangeResult[0].minDate);
+            const maxDate = new Date(dateRangeResult[0].maxDate);
+            console.log(`📅 Rango de datos: ${minDate.toISOString().split('T')[0]} a ${maxDate.toISOString().split('T')[0]}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error conectando a MongoDB:', error.message);
+        console.log('🔄 Reintentando conexión en 5 segundos...');
+        setTimeout(connectMongoDB, 5000);
+    }
 }
 
-// Maneja eventos de conexión de MongoDB
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️  MongoDB desconectado');
+// Manejo de eventos de MongoDB
+mongoose.connection.on('error', err => {
+    console.error('❌ Error de MongoDB:', err.message);
 });
 
-mongoose.connection.on('error', (err) => {
-  console.error('❌ Error en MongoDB:', err.message);
+mongoose.connection.on('disconnected', () => {
+    console.warn('⚠️  MongoDB desconectado. Intentando reconectar...');
 });
 
 mongoose.connection.on('reconnected', () => {
-  console.log('✅ MongoDB reconectado');
+    console.log('✅ MongoDB reconectado');
 });
 
-// ==================== SERVIDOR ====================
+// ==================== INICIAR SERVIDOR ====================
 
-// Inicia la conexión a MongoDB
 connectMongoDB();
 
-// Inicia el servidor HTTP
 const server = app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor ejecutándose en: http://localhost:${PORT}`);
-  console.log(`📊 API disponible en: http://localhost:${PORT}/api`);
-  console.log(`🌍 Acceso: Público sin restricciones`);
-  console.log(`⚙️  Entorno: ${process.env.NODE_ENV || 'development'}\n`);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🚀 Servidor API de Monitoreo Ambiental WS302`);
+    console.log(`${'='.repeat(60)}`);
+    console.log(`\n📍 URL Principal: http://localhost:${PORT}`);
+    console.log(`📄 Dashboard HTML: http://localhost:${PORT}/`);
+    console.log(`📊 API Info (JSON): http://localhost:${PORT}/api`);
+    console.log(`\n⚙️  Configuración:`);
+    console.log(`   • Entorno: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   • Puerto: ${PORT}`);
+    console.log(`   • CORS: Abierto (*)`);
+    console.log(`   • Compresión: Habilitada`);
+    console.log(`\n💡 Endpoints principales:`);
+    console.log(`   ❤️  Health Check:     GET /api/health`);
+    console.log(`   📱 Dispositivos:      GET /api/sensores/devices`);
+    console.log(`   📊 Resumen Stats:     GET /api/estadisticas/resumen`);
+    console.log(`   📈 Tendencias:        GET /api/estadisticas/tendencias?dias=30`);
+    console.log(`   🔋 Estado Baterías:   GET /api/estadisticas/estado-baterias`);
+    console.log(`   💾 Exportar CSV:      GET /api/sensores/exportar/csv`);
+    console.log(`\n${'='.repeat(60)}\n`);
 });
 
-// Configura timeout para peticiones HTTP
+// Configuración de timeouts
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
 
 // ==================== GRACEFUL SHUTDOWN ====================
 
-// Variable para controlar el estado de shutdown
 let isShuttingDown = false;
 
-// Función para cerrar el servidor de forma segura
 const gracefulShutdown = async (signal) => {
-  if (isShuttingDown) {
-    console.log('⏳ Shutdown ya en proceso...');
-    return;
-  }
-  
-  isShuttingDown = true;
-  console.log(`\n📴 Señal ${signal} recibida`);
-  console.log('🔄 Iniciando cierre graceful...');
-  
-  // Timeout de seguridad: fuerza cierre después de 30 segundos
-  const forceShutdownTimeout = setTimeout(() => {
-    console.error('⚠️  Forzando cierre del servidor (timeout)');
-    process.exit(1);
-  }, 30000);
-  
-  try {
-    // Deja de aceptar nuevas conexiones
-    console.log('🛑 Cerrando servidor HTTP...');
-    await new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    console.log('✅ Servidor HTTP cerrado');
+    if (isShuttingDown) return;
     
-    // Cierra la conexión a MongoDB
-    console.log('🛑 Cerrando conexión MongoDB...');
-    await mongoose.connection.close(false);
-    console.log('✅ MongoDB desconectado');
+    isShuttingDown = true;
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`📴 Señal ${signal} recibida. Iniciando shutdown...`);
+    console.log(`${'='.repeat(60)}`);
     
-    // Limpia el timeout
-    clearTimeout(forceShutdownTimeout);
+    const forceShutdownTimeout = setTimeout(() => {
+        console.error('⚠️  Timeout alcanzado. Forzando cierre del servidor...');
+        process.exit(1);
+    }, 30000);
     
-    console.log('✅ Shutdown completado exitosamente\n');
-    process.exit(0);
-  } catch (error) {
-    console.error('❌ Error durante shutdown:', error.message);
-    clearTimeout(forceShutdownTimeout);
-    process.exit(1);
-  }
+    try {
+        // Cerrar servidor HTTP
+        console.log('🛑 Cerrando servidor HTTP...');
+        await new Promise((resolve, reject) => {
+            server.close((err) => err ? reject(err) : resolve());
+        });
+        console.log('✅ Servidor HTTP cerrado');
+        
+        // Cerrar conexión MongoDB
+        console.log('🛑 Cerrando conexión MongoDB...');
+        await mongoose.connection.close(false);
+        console.log('✅ MongoDB desconectado');
+        
+        clearTimeout(forceShutdownTimeout);
+        console.log('\n✅ Shutdown completado exitosamente');
+        console.log(`${'='.repeat(60)}\n`);
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error durante shutdown:', error.message);
+        clearTimeout(forceShutdownTimeout);
+        process.exit(1);
+    }
 };
 
-// Captura señales de terminación del proceso
+// Escuchar señales de terminación
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Captura excepciones no manejadas
+// Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
-  console.error('❌ Excepción no capturada:', error);
-  gracefulShutdown('uncaughtException');
+    console.error('❌ Excepción no capturada:', error);
+    gracefulShutdown('uncaughtException');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Promesa rechazada no manejada:', reason);
-  gracefulShutdown('unhandledRejection');
+    console.error('❌ Promesa rechazada no manejada:', reason);
+    console.error('Promise:', promise);
+    gracefulShutdown('unhandledRejection');
 });
 
 module.exports = app;
