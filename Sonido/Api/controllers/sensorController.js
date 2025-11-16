@@ -3,7 +3,6 @@ const { validationResult } = require('express-validator');
 
 /**
  * Middleware helper para manejar errores de validación
- * Debe ser llamado al inicio de cada controlador que use validación
  */
 const handleValidationErrors = (req, res) => {
   const errors = validationResult(req);
@@ -20,7 +19,6 @@ const handleValidationErrors = (req, res) => {
 // Obtiene datos con filtros opcionales y paginación
 exports.getDatos = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
@@ -36,32 +34,28 @@ exports.getDatos = async (req, res, next) => {
 
     const filtro = {};
 
-    // Construye filtro de rango de fechas
     if (fechaInicio || fechaFin) {
       filtro.time = {};
       if (fechaInicio) filtro.time.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.time.$lte = new Date(fechaFin);
     }
 
-    // Construye filtro de rango de decibeles
     if (minDecibeles || maxDecibeles) {
       filtro['measurements.LAeq'] = {};
       if (minDecibeles) filtro['measurements.LAeq'].$gte = parseFloat(minDecibeles);
       if (maxDecibeles) filtro['measurements.LAeq'].$lte = parseFloat(maxDecibeles);
     }
 
-    // Calcula skip para paginación
     const pageInt = parseInt(page);
     const limitInt = parseInt(limit);
     const skip = (pageInt - 1) * limitInt;
 
-    // Ejecuta consultas en paralelo para mejor performance
     const [datos, total] = await Promise.all([
       Sensor.find(filtro)
         .sort(sort)
         .skip(skip)
         .limit(limitInt)
-        .lean(), // Usa lean para mejor performance
+        .lean(),
       Sensor.countDocuments(filtro)
     ]);
 
@@ -77,15 +71,13 @@ exports.getDatos = async (req, res, next) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    // Pasa el error al middleware global de errores
     next(error);
   }
 };
 
-// Obtiene un documento específico por su ID de MongoDB
+// Obtiene un documento específico por su ID
 exports.getDatoById = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
@@ -109,15 +101,14 @@ exports.getDatoById = async (req, res, next) => {
   }
 };
 
-// Obtiene las últimas N mediciones ordenadas por fecha descendente
+// Obtiene las últimas N mediciones
 exports.getUltimas = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
     const { cantidad = 50 } = req.query;
-    const cantidadInt = Math.min(parseInt(cantidad), 1000); // Límite máximo de seguridad
+    const cantidadInt = parseInt(cantidad);
 
     const datos = await Sensor.find()
       .sort({ time: -1 })
@@ -135,10 +126,9 @@ exports.getUltimas = async (req, res, next) => {
   }
 };
 
-// Obtiene el rango de fechas disponible en la base de datos
+// Obtiene el rango de fechas disponible
 exports.getRangoFechas = async (req, res, next) => {
   try {
-    // Optimiza agregación proyectando solo el campo necesario
     const rango = await Sensor.aggregate([
       {
         $project: { time: 1 }
@@ -163,14 +153,12 @@ exports.getRangoFechas = async (req, res, next) => {
   }
 };
 
-// Búsqueda avanzada con múltiples filtros (CAMBIO: debe ser GET, no POST)
+// Búsqueda avanzada con múltiples filtros
 exports.buscarAvanzado = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
-    // CORRECCIÓN: usa req.query en vez de req.body ya que es GET
     const {
       texto,
       fechaInicio,
@@ -183,7 +171,6 @@ exports.buscarAvanzado = async (req, res, next) => {
 
     const filtro = {};
 
-    // Búsqueda por texto en múltiples campos
     if (texto) {
       filtro.$or = [
         { 'deviceInfo.deviceName': new RegExp(texto, 'i') },
@@ -192,14 +179,12 @@ exports.buscarAvanzado = async (req, res, next) => {
       ];
     }
 
-    // Filtro de fechas
     if (fechaInicio || fechaFin) {
       filtro.time = {};
       if (fechaInicio) filtro.time.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.time.$lte = new Date(fechaFin);
     }
 
-    // Filtro de decibeles
     if (minDecibeles || maxDecibeles) {
       filtro['measurements.LAeq'] = {};
       if (minDecibeles) filtro['measurements.LAeq'].$gte = parseFloat(minDecibeles);
@@ -207,10 +192,9 @@ exports.buscarAvanzado = async (req, res, next) => {
     }
 
     const pageInt = parseInt(page);
-    const limitInt = Math.min(parseInt(limit), 1000); // Límite de seguridad
+    const limitInt = parseInt(limit);
     const skip = (pageInt - 1) * limitInt;
 
-    // Ejecuta consultas en paralelo
     const [datos, total] = await Promise.all([
       Sensor.find(filtro)
         .sort({ time: -1 })
@@ -239,29 +223,25 @@ exports.buscarAvanzado = async (req, res, next) => {
 // Exporta datos a formato CSV
 exports.exportarCSV = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
-    const { fechaInicio, fechaFin, limit = 10000 } = req.query;
+    const { fechaInicio, fechaFin, limit = 50000 } = req.query;
     const filtro = {};
 
-    // Filtro de fechas
     if (fechaInicio || fechaFin) {
       filtro.time = {};
       if (fechaInicio) filtro.time.$gte = new Date(fechaInicio);
       if (fechaFin) filtro.time.$lte = new Date(fechaFin);
     }
 
-    // CORRECCIÓN: Limita la cantidad de datos exportados para evitar timeout
-    const limitInt = Math.min(parseInt(limit), 50000);
+    const limitInt = parseInt(limit);
 
     const datos = await Sensor.find(filtro)
       .sort({ time: -1 })
       .limit(limitInt)
       .lean();
 
-    // Genera CSV con encabezados
     let csv = 'Fecha,Dispositivo,Dirección,LAeq (dB),LAI,LAImax,Batería (%),Frecuencia\n';
     
     datos.forEach(d => {
@@ -277,7 +257,6 @@ exports.exportarCSV = async (req, res, next) => {
       csv += `"${fecha}","${dispositivo}","${direccion}",${laeq},${lai},${laimax},${bateria},${frecuencia}\n`;
     });
 
-    // CORRECCIÓN: Usa UTF-8 BOM para compatibilidad con Excel
     const BOM = '\uFEFF';
     res.header('Content-Type', 'text/csv; charset=utf-8');
     res.header('Content-Disposition', `attachment; filename=datos-sonido-${Date.now()}.csv`);
@@ -290,14 +269,12 @@ exports.exportarCSV = async (req, res, next) => {
 // Calcula estadísticas agregadas por hora
 exports.estadisticasHora = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
     const { fecha } = req.query;
     const filtro = {};
 
-    // Filtra por día específico si se proporciona
     if (fecha) {
       const d = new Date(fecha);
       filtro.time = {
@@ -306,7 +283,6 @@ exports.estadisticasHora = async (req, res, next) => {
       };
     }
 
-    // Optimiza agregación proyectando solo campos necesarios
     const stats = await Sensor.aggregate([
       { $match: filtro },
       {
@@ -340,17 +316,15 @@ exports.estadisticasHora = async (req, res, next) => {
 // Calcula estadísticas agregadas por día
 exports.estadisticasDia = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
     const { dias = 30 } = req.query;
-    const diasInt = Math.min(parseInt(dias), 365); // Límite máximo 1 año
+    const diasInt = parseInt(dias);
     
     const fechaInicio = new Date();
     fechaInicio.setDate(fechaInicio.getDate() - diasInt);
 
-    // Optimiza agregación proyectando solo campos necesarios
     const stats = await Sensor.aggregate([
       {
         $match: {
@@ -386,17 +360,15 @@ exports.estadisticasDia = async (req, res, next) => {
   }
 };
 
-// Obtiene alertas cuando los valores exceden umbrales definidos
+// Obtiene alertas cuando los valores exceden umbrales
 exports.getAlertas = async (req, res, next) => {
   try {
-    // Valida errores de express-validator
     const validationError = handleValidationErrors(req, res);
     if (validationError) return;
 
     const { umbralBajo = 50, umbralAlto = 80, limit = 1000 } = req.query;
-    const limitInt = Math.min(parseInt(limit), 5000); // Límite de seguridad
+    const limitInt = parseInt(limit);
 
-    // Encuentra valores fuera del rango normal
     const alertas = await Sensor.find({
       $or: [
         { 'measurements.LAeq': { $lt: parseFloat(umbralBajo) } },

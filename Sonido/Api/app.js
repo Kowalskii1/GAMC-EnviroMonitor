@@ -1,19 +1,8 @@
-// Uso en tu app.js 
-
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
 const morgan = require('morgan');
-const helmet = require('helmet');
-const path = require('path');
-const rateLimit = require('express-rate-limit');
-const fs = require('fs');
-
-// Importar middlewares personalizados
-const errorHandler = require('./middleware/errorHandler');
-const logger = require('./middleware/logger');
-const requestLogger = require('./middleware/requestLogger');
 
 // Importar rutas
 const sensorRoutes = require('./routes/sensores');
@@ -23,198 +12,116 @@ const healthRoutes = require('./routes/health');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Crea directorio de logs si no existe
-if (!fs.existsSync('logs')) {
-  fs.mkdirSync('logs');
-}
+// ==================== MIDDLEWARES ====================
 
-// ==================== SEGURIDAD ====================
+// Compresión de respuestas
+app.use(compression());
 
-app.disable('x-powered-by');
+// Logging de peticiones
+app.use(morgan('combined'));
 
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false
-}));
+// Parseo de JSON y URL-encoded
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ==================== ACCESO PÚBLICO ====================
-
+// CORS completamente abierto
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.setHeader('Access-Control-Max-Age', '86400');
-  
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+    return res.sendStatus(200);
   }
-  
   next();
 });
 
-// ==================== RATE LIMITING ====================
+// ==================== RUTAS ====================
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    error: 'Demasiadas peticiones. Intenta de nuevo más tarde.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === '/api/health'
-});
-
-app.use(globalLimiter);
-
-// ==================== MIDDLEWARE ====================
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(compression());
-
-// Logger HTTP con Winston stream
-app.use(morgan('combined', { stream: logger.stream }));
-
-// Logger personalizado de requests (opcional)
-app.use(requestLogger);
-
-// ==================== RUTAS DE API ====================
-
-app.use('/api/health', healthRoutes);
 app.use('/api/sensores', sensorRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
+app.use('/api/health', healthRoutes);
 
-// ==================== ARCHIVOS ESTÁTICOS ====================
-
-app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
-  etag: true
-}));
-
+// Ruta raíz
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.json({
+    message: 'API de Monitoreo de Ruido Ambiental',
+    version: '1.0.0',
+    endpoints: {
+      sensores: '/api/sensores',
+      estadisticas: '/api/estadisticas',
+      health: '/api/health'
+    }
+  });
 });
 
 // ==================== MANEJO DE ERRORES ====================
 
-// 404 - Debe ir ANTES del error handler global
+// Middleware para rutas no encontradas
 app.use((req, res) => {
-  logger.warn(`Ruta no encontrada: ${req.method} ${req.originalUrl}`, {
-    ip: req.ip
-  });
-  
   res.status(404).json({
     success: false,
-    error: 'Ruta no encontrada',
-    path: req.originalUrl,
-    method: req.method
+    error: 'Endpoint no encontrado',
+    path: req.path,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Error handler global - DEBE SER EL ÚLTIMO MIDDLEWARE
-app.use(errorHandler);
+// Middleware global de manejo de errores
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || 'Error interno del servidor',
+    timestamp: new Date().toISOString()
+  });
+});
 
-// ==================== MONGODB ====================
+// ==================== CONEXIÓN A MONGODB ====================
 
-async function connectMongoDB() {
-  try {
-    logger.info('Conectando a MongoDB...');
-    
-    await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: process.env.DB_NAME,
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      retryWrites: true,
-      retryReads: true
-    });
-    
-    logger.info(`MongoDB conectado - Base de datos: ${process.env.DB_NAME}`);
-  } catch (error) {
-    logger.error(`Error conectando a MongoDB: ${error.message}`);
-    logger.info('Reintentando conexión en 5 segundos...');
-    setTimeout(connectMongoDB, 5000);
-  }
-}
+mongoose.connect(process.env.MONGO_URI, {
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 5000
+})
+.then(() => {
+  console.log('✓ Conectado a MongoDB');
+  
+  // Inicia el servidor solo después de conectar a la BD
+  app.listen(PORT, () => {
+    console.log(`✓ Servidor ejecutándose en puerto ${PORT}`);
+    console.log(`✓ Entorno: ${process.env.NODE_ENV || 'development'}`);
+  });
+})
+.catch(err => {
+  console.error('✗ Error de conexión a MongoDB:', err);
+  process.exit(1);
+});
+
+// Manejo de errores de MongoDB
+mongoose.connection.on('error', err => {
+  console.error('Error de MongoDB:', err);
+});
 
 mongoose.connection.on('disconnected', () => {
-  logger.warn('MongoDB desconectado');
+  console.warn('MongoDB desconectado. Intentando reconectar...');
 });
-
-mongoose.connection.on('error', (err) => {
-  logger.error(`Error en MongoDB: ${err.message}`);
-});
-
-mongoose.connection.on('reconnected', () => {
-  logger.info('MongoDB reconectado');
-});
-
-// ==================== SERVIDOR ====================
-
-connectMongoDB();
-
-const server = app.listen(PORT, () => {
-  logger.info(`Servidor ejecutándose en puerto ${PORT}`);
-  logger.info(`Acceso: Público sin restricciones`);
-  logger.info(`Entorno: ${process.env.NODE_ENV || 'development'}`);
-});
-
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
 
 // ==================== GRACEFUL SHUTDOWN ====================
 
-let isShuttingDown = false;
-
 const gracefulShutdown = async (signal) => {
-  if (isShuttingDown) return;
-  
-  isShuttingDown = true;
-  logger.info(`Señal ${signal} recibida - Iniciando cierre graceful`);
-  
-  const forceShutdownTimeout = setTimeout(() => {
-    logger.error('Forzando cierre del servidor (timeout)');
-    process.exit(1);
-  }, 30000);
+  console.log(`\n${signal} recibido. Cerrando conexiones...`);
   
   try {
-    logger.info('Cerrando servidor HTTP...');
-    await new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    logger.info('Servidor HTTP cerrado');
-    
-    logger.info('Cerrando conexión MongoDB...');
-    await mongoose.connection.close(false);
-    logger.info('MongoDB desconectado');
-    
-    clearTimeout(forceShutdownTimeout);
-    logger.info('Shutdown completado exitosamente');
+    await mongoose.connection.close();
+    console.log('✓ MongoDB desconectado');
     process.exit(0);
-  } catch (error) {
-    logger.error(`Error durante shutdown: ${error.message}`);
-    clearTimeout(forceShutdownTimeout);
+  } catch (err) {
+    console.error('Error al cerrar conexiones:', err);
     process.exit(1);
   }
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-process.on('uncaughtException', (error) => {
-  logger.error('Excepción no capturada', { error: error.message, stack: error.stack });
-  gracefulShutdown('uncaughtException');
-});
-
-process.on('unhandledRejection', (reason) => {
-  logger.error('Promesa rechazada no manejada', { reason });
-  gracefulShutdown('unhandledRejection');
-});
-
-module.exports = app;
