@@ -12,13 +12,6 @@ const DB_NAME = "datos_soterrados";
 //const DB_NAME = "soterradosDB";
 const MAX_RECORDS = 5000;
 
-/*
-const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGODB_URI;
-const DB_NAME = process.env.DB_NAME;
-const COLLECTION_NAME = process.env.COLLECTION_NAME || "data_soterrados";
-const MAX_RECORDS = process.env.MAX_RECORDS_PER_PAGE || 5000;
-*/
 //const COLLECTION_NAME = "sensores";
 const COLLECTION_NAME = "data_soterrados";
 
