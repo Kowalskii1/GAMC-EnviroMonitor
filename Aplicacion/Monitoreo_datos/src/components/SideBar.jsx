@@ -81,11 +81,6 @@ const linksArray = [
     icon: <AiOutlineBarChart/>,
     to: "/datos_soterrados",
   },
-  {
-    label: "Reportes",
-    icon: <MdOutlineAnalytics />,
-    to: "/reportes",
-  },
 ];
 const secondarylinksArray = [
   {
