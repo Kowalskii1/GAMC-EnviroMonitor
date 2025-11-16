@@ -3,9 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
 const morgan = require('morgan');
-const helmet = require('helmet');
 const path = require('path');
-const rateLimit = require('express-rate-limit');
 
 // Importar rutas
 const sensorRoutes = require('./routes/sensores');
@@ -15,140 +13,190 @@ const healthRoutes = require('./routes/health');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== SEGURIDAD ====================
+// ==================== MIDDLEWARES ====================
 
-// Deshabilita el header X-Powered-By para reducir fingerprinting
-app.disable('x-powered-by');
+// Compresión de respuestas
+app.use(compression());
 
-// Configura headers de seguridad HTTP con Helmet
-app.use(helmet({
-  contentSecurityPolicy: false, // Deshabilitado para API pública
-  crossOriginEmbedderPolicy: false
-}));
+// Logging de peticiones
+app.use(morgan('combined'));
 
-// ==================== ACCESO PÚBLICO (SIN CORS) ====================
+// Parseo de JSON y URL-encoded
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Configura headers para acceso público sin restricciones
+// CORS completamente abierto - SIN RESTRICCIONES
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.setHeader('Access-Control-Max-Age', '86400');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', '*');
+  res.header('Access-Control-Max-Age', '86400');
   
-  // Responde inmediatamente a peticiones OPTIONS (preflight)
   if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+    return res.sendStatus(200);
   }
-  
   next();
 });
 
-// ==================== RATE LIMITING ====================
+// ==================== ARCHIVOS ESTÁTICOS ====================
 
-// Limitador global para prevenir abuso de API pública
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // Máximo 100 peticiones por IP
-  message: {
-    success: false,
-    error: 'Demasiadas peticiones. Intenta de nuevo más tarde.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === '/api/health' // Excluye health check
-});
-
-app.use(globalLimiter);
-
-// ==================== MIDDLEWARE ====================
-
-// Parsea el body de las peticiones JSON y URL-encoded
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
-
-// Comprime las respuestas HTTP para reducir ancho de banda
-app.use(compression());
-
-// Logger de peticiones HTTP en consola
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// Servir archivos estáticos desde la carpeta 'public'
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  etag: true,
+  index: 'index.html'
+}));
 
 // ==================== RUTAS DE API ====================
 
-// Health check para monitoreo (sin rate limiting)
-app.use('/api/health', healthRoutes);
-
-// Rutas principales de la aplicación
 app.use('/api/sensores', sensorRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
+app.use('/api/health', healthRoutes);
 
-// ==================== ARCHIVOS ESTÁTICOS ====================
+// Ruta API info (solo JSON, no HTML)
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'API de Monitoreo de Ruido Ambiental - LoRaWAN WS302',
+    version: '3.0.0',
+    database: 'emergentes',
+    coleccion: 'sonido_raw',
+    totalDocuments: '3,792+',
+    documentacion: `${req.protocol}://${req.get('host')}/`,
+    endpoints: {
+      sensores: {
+        datos: '/api/sensores/datos',
+        ultimas: '/api/sensores/ultimas',
+        buscar: '/api/sensores/buscar',
+        devices: '/api/sensores/devices',
+        exportarCSV: '/api/sensores/exportar/csv',
+        alertas: '/api/sensores/alertas',
+        rangoFechas: '/api/sensores/rango-fechas',
+        estadisticasHora: '/api/sensores/estadisticas/hora',
+        estadisticasDia: '/api/sensores/estadisticas/dia'
+      },
+      estadisticas: {
+        // Análisis básico
+        resumen: '/api/estadisticas/resumen',
+        porHora: '/api/estadisticas/por-hora',
+        comparacionDias: '/api/estadisticas/comparacion-dias',
+        
+        // Análisis temporal avanzado
+        porDiaSemana: '/api/estadisticas/por-dia-semana',
+        tendencias: '/api/estadisticas/tendencias',
+        
+        // Análisis por dispositivo
+        comparacionDispositivos: '/api/estadisticas/comparacion-dispositivos',
+        dispositivosRanking: '/api/estadisticas/dispositivos-ranking',
+        
+        // Cumplimiento normativo
+        cumplimientoNormativo: '/api/estadisticas/cumplimiento-normativo',
+        picosRuido: '/api/estadisticas/picos-ruido',
+        
+        // Gestión de baterías
+        estadoBaterias: '/api/estadisticas/estado-baterias',
+        historialBateria: '/api/estadisticas/historial-bateria/:devAddr'
+      },
+      health: '/api/health'
+    },
+    ejemplos: {
+      // Consultas básicas
+      obtenerDatos: '/api/sensores/datos?limit=10&page=1',
+      filtrarPorDecibeles: '/api/sensores/datos?minDecibeles=50&maxDecibeles=80',
+      ultimas10: '/api/sensores/ultimas?cantidad=10',
+      dispositivos: '/api/sensores/devices',
+      
+      // Estadísticas
+      resumenCompleto: '/api/estadisticas/resumen',
+      estadisticasHora: '/api/estadisticas/por-hora?fecha=2024-11-15',
+      comparacionSemanal: '/api/estadisticas/comparacion-dias?dias=7',
+      patronesDiaSemana: '/api/estadisticas/por-dia-semana?dias=30',
+      
+      // Análisis avanzado
+      tendencias: '/api/estadisticas/tendencias?dias=30',
+      rankingDispositivos: '/api/estadisticas/dispositivos-ranking?metrica=promedio',
+      cumplimiento: '/api/estadisticas/cumplimiento-normativo?umbralDia=70&umbralNoche=60',
+      picosRuido: '/api/estadisticas/picos-ruido?dias=7',
+      
+      // Gestión de dispositivos
+      estadoBaterias: '/api/estadisticas/estado-baterias',
+      historialBateria: '/api/estadisticas/historial-bateria/008ac7ec?dias=30',
+      
+      // Exportación
+      exportarCSV: '/api/sensores/exportar/csv?fechaInicio=2024-11-01&fechaFin=2024-11-15'
+    },
+    filtros_disponibles: {
+      fechas: 'fechaInicio, fechaFin (formato ISO8601)',
+      decibeles: 'minDecibeles, maxDecibeles',
+      dispositivo: 'devAddr',
+      paginacion: 'page, limit',
+      ordenamiento: 'sort'
+    },
+    metricas_soportadas: {
+      LAeq: 'Nivel de presión sonora continuo equivalente',
+      LAI: 'Nivel de presión sonora con ponderación temporal I',
+      LAImax: 'Nivel máximo de presión sonora LAI',
+      battery: 'Nivel de batería del sensor (%)'
+    }
+  });
+});
 
-// Sirve archivos del directorio public con cache
-app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
-  etag: true
-}));
+// ==================== RUTA RAÍZ ====================
 
-// Ruta raíz que sirve el HTML principal
+// La ruta raíz sirve el index.html de la carpeta public
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ==================== MANEJO DE ERRORES ====================
 
-// Handler para rutas no encontradas (404)
+// Middleware para rutas no encontradas
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Ruta no encontrada',
-    path: req.originalUrl,
-    method: req.method
-  });
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      error: 'Endpoint no encontrado',
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+      ayuda: 'Visita GET /api para ver todos los endpoints disponibles'
+    });
+  }
+  
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Handler global de errores
+// Middleware global de manejo de errores
 app.use((err, req, res, next) => {
-  // Log del error en servidor
-  console.error('❌ Error:', {
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
-    path: req.path,
-    method: req.method
-  });
+  console.error('❌ Error:', err);
   
-  // Respuesta genérica para no exponer información sensible
   res.status(err.status || 500).json({
     success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Error interno del servidor' 
-      : err.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    error: err.message || 'Error interno del servidor',
+    timestamp: new Date().toISOString()
   });
 });
 
-// ==================== MONGODB ====================
+// ==================== CONEXIÓN A MONGODB ====================
 
-// Intenta conectar a MongoDB con reintentos automáticos
 async function connectMongoDB() {
   try {
     console.log('🔄 Conectando a MongoDB...');
     
-    await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: process.env.DB_NAME,
+    await mongoose.connect(process.env.MONGO_URI, {
       maxPoolSize: 10,
       minPoolSize: 2,
-      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      retryWrites: true,
-      retryReads: true
+      serverSelectionTimeoutMS: 5000
     });
     
     console.log('✅ MongoDB conectado exitosamente');
-    console.log(`📁 Base de datos: ${process.env.DB_NAME}`);
+    console.log(`📁 Base de datos: emergentes`);
+    console.log(`📊 Colección: sonido_raw`);
+    
+    // Verificar cantidad de documentos
+    const Sensor = require('./models/Sensor');
+    const count = await Sensor.countDocuments();
+    console.log(`📄 Documentos encontrados: ${count.toLocaleString('es-CO')}`);
   } catch (error) {
     console.error('❌ Error conectando a MongoDB:', error.message);
     console.log('🔄 Reintentando conexión en 5 segundos...');
@@ -156,78 +204,70 @@ async function connectMongoDB() {
   }
 }
 
-// Maneja eventos de conexión de MongoDB
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️  MongoDB desconectado');
+// Manejo de eventos de MongoDB
+mongoose.connection.on('error', err => {
+  console.error('❌ Error de MongoDB:', err.message);
 });
 
-mongoose.connection.on('error', (err) => {
-  console.error('❌ Error en MongoDB:', err.message);
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️  MongoDB desconectado. Intentando reconectar...');
 });
 
 mongoose.connection.on('reconnected', () => {
   console.log('✅ MongoDB reconectado');
 });
 
-// ==================== SERVIDOR ====================
+// ==================== INICIAR SERVIDOR ====================
 
-// Inicia la conexión a MongoDB
 connectMongoDB();
 
-// Inicia el servidor HTTP
 const server = app.listen(PORT, () => {
   console.log(`\n🚀 Servidor ejecutándose en: http://localhost:${PORT}`);
-  console.log(`📊 API disponible en: http://localhost:${PORT}/api`);
+  console.log(`📄 Documentación (HTML): http://localhost:${PORT}/`);
+  console.log(`📊 API Info (JSON): http://localhost:${PORT}/api`);
   console.log(`🌍 Acceso: Público sin restricciones`);
-  console.log(`⚙️  Entorno: ${process.env.NODE_ENV || 'development'}\n`);
+  console.log(`⚙️  Entorno: ${process.env.NODE_ENV || 'production'}`);
+  console.log(`\n💡 Endpoints principales:`);
+  console.log(`   📋 GET http://localhost:${PORT}/api`);
+  console.log(`   ❤️  GET http://localhost:${PORT}/api/health`);
+  console.log(`   📱 GET http://localhost:${PORT}/api/sensores/devices`);
+  console.log(`   📊 GET http://localhost:${PORT}/api/estadisticas/resumen`);
+  console.log(`   📈 GET http://localhost:${PORT}/api/estadisticas/tendencias`);
+  console.log(`   🔋 GET http://localhost:${PORT}/api/estadisticas/estado-baterias\n`);
 });
 
-// Configura timeout para peticiones HTTP
+// Configuración de timeouts
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
 
 // ==================== GRACEFUL SHUTDOWN ====================
 
-// Variable para controlar el estado de shutdown
 let isShuttingDown = false;
 
-// Función para cerrar el servidor de forma segura
 const gracefulShutdown = async (signal) => {
-  if (isShuttingDown) {
-    console.log('⏳ Shutdown ya en proceso...');
-    return;
-  }
+  if (isShuttingDown) return;
   
   isShuttingDown = true;
-  console.log(`\n📴 Señal ${signal} recibida`);
-  console.log('🔄 Iniciando cierre graceful...');
+  console.log(`\n📴 Señal ${signal} recibida. Cerrando conexiones...`);
   
-  // Timeout de seguridad: fuerza cierre después de 30 segundos
   const forceShutdownTimeout = setTimeout(() => {
-    console.error('⚠️  Forzando cierre del servidor (timeout)');
+    console.error('⚠️  Forzando cierre del servidor');
     process.exit(1);
   }, 30000);
   
   try {
-    // Deja de aceptar nuevas conexiones
     console.log('🛑 Cerrando servidor HTTP...');
     await new Promise((resolve, reject) => {
-      server.close((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
+      server.close((err) => err ? reject(err) : resolve());
     });
     console.log('✅ Servidor HTTP cerrado');
     
-    // Cierra la conexión a MongoDB
     console.log('🛑 Cerrando conexión MongoDB...');
     await mongoose.connection.close(false);
     console.log('✅ MongoDB desconectado');
     
-    // Limpia el timeout
     clearTimeout(forceShutdownTimeout);
-    
-    console.log('✅ Shutdown completado exitosamente\n');
+    console.log('✅ Shutdown completado\n');
     process.exit(0);
   } catch (error) {
     console.error('❌ Error durante shutdown:', error.message);
@@ -236,17 +276,15 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
-// Captura señales de terminación del proceso
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Captura excepciones no manejadas
 process.on('uncaughtException', (error) => {
   console.error('❌ Excepción no capturada:', error);
   gracefulShutdown('uncaughtException');
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('❌ Promesa rechazada no manejada:', reason);
   gracefulShutdown('unhandledRejection');
 });

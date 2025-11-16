@@ -3,246 +3,799 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Monitoreo WS302 - Documentación</title>
+    <title>API Monitoreo WS302 - Documentación Completa</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
             color: #333;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+        }
 
         header {
             text-align: center;
             color: white;
             margin-bottom: 40px;
             padding: 40px 20px;
+            animation: fadeIn 0.6s ease-in;
         }
 
-        h1 { font-size: 2.5em; margin-bottom: 10px; }
-        .subtitle { font-size: 1.2em; opacity: 0.9; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 { 
+            font-size: 2.8em; 
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle { 
+            font-size: 1.3em; 
+            opacity: 0.95;
+            margin-bottom: 20px;
+        }
+
+        .server-status {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .status-online { 
+            background: #4CAF50;
+            box-shadow: 0 0 15px #4CAF50;
+        }
+
+        .status-offline { 
+            background: #f44336;
+            box-shadow: 0 0 15px #f44336;
+        }
+
+        .status-checking {
+            background: #FFC107;
+            box-shadow: 0 0 15px #FFC107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .db-info {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9em;
+            display: inline-block;
+        }
 
         .endpoints {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 25px;
             margin-bottom: 40px;
         }
 
         .endpoint {
             background: white;
-            padding: 25px;
-            border-radius: 12px;
+            padding: 28px;
+            border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            transition: transform 0.3s, box-shadow 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .endpoint::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transition: transform 0.3s;
+        }
+
+        .endpoint:hover::before {
+            transform: scaleX(1);
         }
 
         .endpoint:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
         }
 
         .method {
             display: inline-block;
-            padding: 6px 12px;
-            border-radius: 4px;
+            padding: 7px 14px;
+            border-radius: 6px;
             font-size: 0.75em;
             font-weight: bold;
             color: white;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .get { background: #4CAF50; }
-        .post { background: #2196F3; }
+        .get { background: linear-gradient(135deg, #4CAF50, #45a049); }
+        .post { background: linear-gradient(135deg, #2196F3, #1976D2); }
 
         .endpoint h3 {
             color: #667eea;
-            font-size: 1.3em;
-            margin-bottom: 10px;
+            font-size: 1.4em;
+            margin-bottom: 12px;
+            font-weight: 600;
         }
 
         .endpoint p {
             color: #666;
-            margin-bottom: 15px;
+            margin-bottom: 16px;
             font-size: 0.95em;
-            line-height: 1.6;
+            line-height: 1.7;
         }
 
         code {
-            background: #f5f5f5;
-            padding: 12px;
-            border-radius: 6px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 14px;
+            border-radius: 8px;
             display: block;
-            font-size: 0.85em;
+            font-size: 0.82em;
             overflow-x: auto;
-            margin: 12px 0;
-            font-family: 'Courier New', monospace;
+            margin: 14px 0;
+            font-family: 'Courier New', 'Consolas', monospace;
             word-break: break-all;
+            color: #495057;
+            position: relative;
+        }
+
+        code::before {
+            content: 'URL';
+            position: absolute;
+            top: -8px;
+            left: 10px;
+            background: white;
+            padding: 2px 8px;
+            font-size: 0.7em;
+            color: #667eea;
+            font-weight: 600;
+            border-radius: 4px;
         }
 
         .btn {
-            background: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 12px 24px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            transition: background 0.3s;
+            transition: all 0.3s;
             font-size: 0.9em;
-            margin-top: 10px;
+            margin-top: 12px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            width: 100%;
         }
 
-        .btn:hover { background: #5568d3; }
-        .btn:active { transform: scale(0.98); }
+        .btn:hover { 
+            background: linear-gradient(135deg, #5568d3, #6a3f8f);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .btn:active { 
+            transform: translateY(0);
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: linear-gradient(135deg, #ccc, #aaa);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
 
         .response {
-            background: #f9f9f9;
+            background: #f8f9fa;
             border-left: 4px solid #667eea;
-            padding: 12px;
-            margin-top: 12px;
-            border-radius: 4px;
-            max-height: 200px;
+            padding: 14px;
+            margin-top: 14px;
+            border-radius: 6px;
+            max-height: 350px;
             overflow-y: auto;
             display: none;
-            font-size: 0.8em;
-            font-family: monospace;
+            font-size: 0.78em;
+            font-family: 'Courier New', 'Consolas', monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            position: relative;
         }
 
-        .response.active { display: block; }
+        .response.active { 
+            display: block; 
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; max-height: 0; }
+            to { opacity: 1; max-height: 350px; }
+        }
+
+        .response.success { 
+            border-left-color: #4CAF50;
+            background: #f1f8f4;
+        }
+
+        .response.error { 
+            border-left-color: #f44336;
+            background: #fef5f5;
+        }
+
+        .response.empty { 
+            border-left-color: #FF9800;
+            background: #fff8f0;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .response-time {
+            font-size: 0.85em;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid #667eea;
+            color: #667eea;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: white;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
 
         footer {
             text-align: center;
             color: white;
-            padding: 30px 20px;
-            margin-top: 40px;
+            padding: 40px 20px;
+            margin-top: 50px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        footer a {
+            color: white;
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(255,255,255,0.5);
+            transition: all 0.3s;
+        }
+
+        footer a:hover {
+            border-bottom: 1px solid white;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(102, 126, 234, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
-            h1 { font-size: 1.8em; }
+            h1 { font-size: 2em; }
+            .subtitle { font-size: 1em; }
             .endpoints { grid-template-columns: 1fr; }
             code { font-size: 0.75em; }
+            .endpoint { padding: 20px; }
+        }
+
+        /* Scrollbar personalizado */
+        .response::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .response::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+        }
+
+        .response::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .response::-webkit-scrollbar-thumb:hover {
+            background: #5568d3;
         }
     </style>
 </head>
 <body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
     <div class="container">
         <header>
             <h1>📊 API Monitoreo Ruido WS302</h1>
-            <p class="subtitle">Documentación de endpoints - Consumo inteligente de datos</p>
+            <p class="subtitle">Sistema de Monitoreo de Ruido Ambiental - LoRaWAN</p>
+            
+            <div class="server-status">
+                <span class="status-indicator status-checking" id="statusIndicator"></span>
+                <span id="statusText">Verificando servidor...</span>
+            </div>
+
+            <div class="db-info" id="dbInfo">
+                <span id="dbDetails">Cargando información de BD...</span>
+            </div>
+
+            <div class="stats-grid" id="statsGrid" style="display: none;">
+                <div class="stat-card">
+                    <span class="stat-value" id="totalDocs">-</span>
+                    <span class="stat-label">Total Documentos</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="totalDevices">-</span>
+                    <span class="stat-label">Dispositivos</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="avgLAeq">-</span>
+                    <span class="stat-label">LAeq Promedio</span>
+                </div>
+            </div>
         </header>
 
         <div class="endpoints">
+            <!-- Health Check -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Health Check</h3>
-                <p>Verifica estado del servidor y MongoDB</p>
-                <code>/api/health</code>
-                <button class="btn" onclick="test('/api/health', 'health')">Probar</button>
+                <h3>🏥 Health Check</h3>
+                <p>Verifica el estado del servidor, MongoDB y tiempo de actividad</p>
+                <code>http://localhost:3000/api/health</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/health', 'health')">🔍 Probar Endpoint</button>
                 <div id="health" class="response"></div>
             </div>
 
+            <!-- Dispositivos -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Obtener Datos</h3>
-                <p>Retorna mediciones con filtros (página, rango fechas, decibeles)</p>
-                <code>/api/sensores/datos?page=1&limit=50&minDecibeles=40&maxDecibeles=85</code>
-                <button class="btn" onclick="test('/api/sensores/datos?limit=10', 'datos')">Probar</button>
+                <h3>📱 Lista de Dispositivos</h3>
+                <p>Obtiene todos los dispositivos LoRaWAN únicos con sus últimas mediciones</p>
+                <code>http://localhost:3000/api/sensores/devices</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/devices', 'devices')">🔍 Probar Endpoint</button>
+                <div id="devices" class="response"></div>
+            </div>
+
+            <!-- Obtener Datos -->
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <h3>📊 Obtener Datos</h3>
+                <p>Retorna mediciones con filtros opcionales: paginación, fechas y rangos de decibeles</p>
+                <code>http://localhost:3000/api/sensores/datos?page=1&limit=10</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/datos?limit=10', 'datos')">🔍 Probar Endpoint</button>
                 <div id="datos" class="response"></div>
             </div>
 
+            <!-- Últimas Mediciones -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Últimas Mediciones</h3>
-                <p>Retorna últimas N mediciones</p>
-                <code>/api/sensores/ultimas?cantidad=20</code>
-                <button class="btn" onclick="test('/api/sensores/ultimas?cantidad=10', 'ultimas')">Probar</button>
+                <h3>⏱️ Últimas Mediciones</h3>
+                <p>Retorna las últimas N mediciones ordenadas por fecha descendente</p>
+                <code>http://localhost:3000/api/sensores/ultimas?cantidad=10</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/ultimas?cantidad=10', 'ultimas')">🔍 Probar Endpoint</button>
                 <div id="ultimas" class="response"></div>
             </div>
 
+            <!-- Rango de Fechas -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Rango de Fechas</h3>
-                <p>Fechas min/max de los datos disponibles</p>
-                <code>/api/sensores/rango-fechas</code>
-                <button class="btn" onclick="test('/api/sensores/rango-fechas', 'rango')">Probar</button>
+                <h3>📅 Rango de Fechas</h3>
+                <p>Obtiene las fechas mínima y máxima de los datos disponibles en la base de datos</p>
+                <code>http://localhost:3000/api/sensores/rango-fechas</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/rango-fechas', 'rango')">🔍 Probar Endpoint</button>
                 <div id="rango" class="response"></div>
             </div>
 
+            <!-- Estadísticas por Hora -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Estadísticas por Hora</h3>
-                <p>Agrupa datos por hora del día</p>
-                <code>/api/sensores/estadisticas/hora?fecha=2024-11-01</code>
-                <button class="btn" onclick="test('/api/sensores/estadisticas/hora', 'hora')">Probar</button>
+                <h3>🕐 Estadísticas por Hora</h3>
+                <p>Agrupa datos por hora del día con promedios, máximos y mínimos</p>
+                <code>http://localhost:3000/api/sensores/estadisticas/hora</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/estadisticas/hora', 'hora')">🔍 Probar Endpoint</button>
                 <div id="hora" class="response"></div>
             </div>
 
+            <!-- Estadísticas por Día -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Estadísticas por Día</h3>
-                <p>Agrupa datos por día (últimos días)</p>
-                <code>/api/sensores/estadisticas/dia?dias=7</code>
-                <button class="btn" onclick="test('/api/sensores/estadisticas/dia?dias=7', 'dia')">Probar</button>
+                <h3>📆 Estadísticas por Día</h3>
+                <p>Agrupa datos por día (últimos 7 días por defecto, configurable)</p>
+                <code>http://localhost:3000/api/sensores/estadisticas/dia?dias=7</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/estadisticas/dia?dias=7', 'dia')">🔍 Probar Endpoint</button>
                 <div id="dia" class="response"></div>
             </div>
 
+            <!-- Resumen General -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Resumen General</h3>
-                <p>Estadísticas generales de todas mediciones</p>
-                <code>/api/estadisticas/resumen</code>
-                <button class="btn" onclick="test('/api/estadisticas/resumen', 'resumen')">Probar</button>
+                <h3>📈 Resumen General</h3>
+                <p>Estadísticas globales: promedio, máximo, mínimo, desviación estándar y batería</p>
+                <code>http://localhost:3000/api/estadisticas/resumen</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/estadisticas/resumen', 'resumen')">🔍 Probar Endpoint</button>
                 <div id="resumen" class="response"></div>
             </div>
 
+            <!-- Alertas -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Alertas</h3>
-                <p>Valores fuera de rango configurado</p>
-                <code>/api/sensores/alertas?umbralBajo=50&umbralAlto=80</code>
-                <button class="btn" onclick="test('/api/sensores/alertas', 'alertas')">Probar</button>
+                <h3>⚠️ Alertas de Ruido</h3>
+                <p>Valores fuera del rango configurado (por defecto: 50-80 dB)</p>
+                <code>http://localhost:3000/api/sensores/alertas?umbralBajo=50&umbralAlto=80</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/alertas', 'alertas')">🔍 Probar Endpoint</button>
                 <div id="alertas" class="response"></div>
             </div>
 
+            <!-- Búsqueda Avanzada -->
             <div class="endpoint">
                 <span class="method get">GET</span>
-                <h3>Exportar CSV</h3>
-                <p>Descargar datos en formato CSV</p>
-                <code>/api/sensores/exportar/csv</code>
-                <button class="btn" onclick="descargarCSV()">Descargar CSV</button>
+                <h3>🔎 Búsqueda Avanzada</h3>
+                <p>Busca por texto (dispositivo, dirección), fechas y rango de decibeles</p>
+                <code>http://localhost:3000/api/sensores/buscar?texto=008ac7ec&limit=10</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/sensores/buscar?limit=10', 'buscar')">🔍 Probar Endpoint</button>
+                <div id="buscar" class="response"></div>
+            </div>
+
+            <!-- Exportar CSV -->
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <h3>💾 Exportar a CSV</h3>
+                <p>Descarga datos en formato CSV compatible con Excel (UTF-8 con BOM)</p>
+                <code>http://localhost:3000/api/sensores/exportar/csv</code>
+                <button class="btn" onclick="descargarCSV()">⬇️ Descargar CSV</button>
+            </div>
+
+            <!-- Estadísticas por Hora (Resumen) -->
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <h3>🕒 Stats por Hora (Todos los Días)</h3>
+                <p>Agrupación por hora con datos acumulados de todos los días disponibles</p>
+                <code>http://localhost:3000/api/estadisticas/por-hora</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/estadisticas/por-hora', 'porhora')">🔍 Probar Endpoint</button>
+                <div id="porhora" class="response"></div>
+            </div>
+
+            <!-- Comparación de Días -->
+            <div class="endpoint">
+                <span class="method get">GET</span>
+                <h3>📊 Comparación de Días</h3>
+                <p>Compara estadísticas diarias entre múltiples días (máximo 90 días)</p>
+                <code>http://localhost:3000/api/estadisticas/comparacion-dias?dias=7</code>
+                <button class="btn" onclick="test('http://localhost:3000/api/estadisticas/comparacion-dias?dias=7', 'comparacion')">🔍 Probar Endpoint</button>
+                <div id="comparacion" class="response"></div>
             </div>
         </div>
 
         <footer>
-            <p>✨ API sin restricción CORS - Disponible para todos</p>
-            <p style="margin-top: 10px; opacity: 0.8; font-size: 0.9em;">MongoDB + Node.js/Express | Monitoreo de Ruido Ambiental</p>
+            <p>✨ <strong>API Pública sin Restricciones CORS</strong> - Accesible desde cualquier origen</p>
+            <p style="margin-top: 15px; opacity: 0.9; font-size: 0.95em;">
+                Tecnologías: MongoDB + Node.js + Express.js | Sensores: LoRaWAN WS302
+            </p>
+            <p style="margin-top: 10px; opacity: 0.8; font-size: 0.85em;">
+                Colección: <code style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px;">emergentes.sonido_raw</code>
+            </p>
         </footer>
     </div>
 
     <script>
-        async function test(endpoint, id) {
-            const responseDiv = document.getElementById(id);
-            responseDiv.classList.add('active');
-            responseDiv.textContent = '⏳ Cargando...';
+        const API_BASE = 'http://localhost:3000';
+        let serverOnline = false;
+        const responseTimes = {};
 
+        // Verificar estado del servidor al cargar
+        window.addEventListener('DOMContentLoaded', async () => {
+            await checkServerStatus();
+            await loadDatabaseInfo();
+        });
+
+        // Verificar estado del servidor
+        async function checkServerStatus() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            
             try {
-                const response = await fetch(endpoint);
+                const startTime = performance.now();
+                const response = await fetch(`${API_BASE}/api/health`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                
                 const data = await response.json();
-                responseDiv.textContent = JSON.stringify(data, null, 2);
+                
+                if (data.status === 'OK') {
+                    serverOnline = true;
+                    statusIndicator.className = 'status-indicator status-online';
+                    statusText.innerHTML = `Servidor en línea ✓ <small>(${responseTime}ms)</small>`;
+                } else {
+                    serverOnline = false;
+                    statusIndicator.className = 'status-indicator status-offline';
+                    statusText.textContent = 'Servidor degradado ⚠️';
+                }
             } catch (error) {
-                responseDiv.textContent = `❌ Error: ${error.message}`;
+                serverOnline = false;
+                statusIndicator.className = 'status-indicator status-offline';
+                statusText.textContent = 'Servidor desconectado ✗';
+                console.error('Error verificando servidor:', error);
             }
         }
 
-        function descargarCSV() {
-            window.location.href = '/api/sensores/exportar/csv';
+        // Cargar información de la base de datos
+        async function loadDatabaseInfo() {
+            const dbDetails = document.getElementById('dbDetails');
+            const statsGrid = document.getElementById('statsGrid');
+            
+            if (!serverOnline) {
+                dbDetails.textContent = 'Base de datos no disponible';
+                return;
+            }
+
+            try {
+                // Obtener resumen de estadísticas
+                const resumenRes = await fetch(`${API_BASE}/api/estadisticas/resumen`);
+                const resumen = await resumenRes.json();
+
+                // Obtener dispositivos
+                const devicesRes = await fetch(`${API_BASE}/api/sensores/devices`);
+                const devices = await devicesRes.json();
+
+                if (resumen.success && resumen.data) {
+                    const data = resumen.data;
+                    dbDetails.innerHTML = `
+                        <strong>BD Conectada:</strong> MongoDB | 
+                        <strong>Colección:</strong> emergentes.sonido_raw
+                    `;
+
+                    // Mostrar estadísticas
+                    document.getElementById('totalDocs').textContent = 
+                        data.totalMediciones?.toLocaleString('es-CO') || '0';
+                    document.getElementById('totalDevices').textContent = 
+                        devices.data?.length || '0';
+                    document.getElementById('avgLAeq').textContent = 
+                        data.promedioLAeq ? `${data.promedioLAeq.toFixed(1)} dB` : '-';
+                    
+                    statsGrid.style.display = 'grid';
+                } else {
+                    dbDetails.textContent = 'BD vacía o sin datos';
+                }
+            } catch (error) {
+                dbDetails.textContent = 'Error al cargar información de BD';
+                console.error('Error cargando BD info:', error);
+            }
         }
+
+        // Función principal para probar endpoints
+        async function test(endpoint, id) {
+            const responseDiv = document.getElementById(id);
+            const btn = event.target;
+            
+            // Preparar UI
+            responseDiv.className = 'response active';
+            responseDiv.innerHTML = '<div class="response-header"><span>⏳ Cargando...</span></div>';
+            btn.disabled = true;
+
+            try {
+                // Medir tiempo de respuesta
+                const startTime = performance.now();
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                responseTimes[id] = responseTime;
+
+                // Parsear respuesta
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    data = { error: 'Respuesta no es JSON', content: text };
+                }
+
+                // Verificar si la respuesta está vacía o sin datos
+                const isEmpty = !data.data || 
+                               (Array.isArray(data.data) && data.data.length === 0) ||
+                               (typeof data.data === 'object' && Object.keys(data.data).length === 0);
+
+                // Formatear respuesta
+                const formattedData = JSON.stringify(data, null, 2);
+                const dataId = `data-${id}-${Date.now()}`;
+
+                if (response.ok) {
+                    if (isEmpty) {
+                        responseDiv.className = 'response active empty';
+                        responseDiv.innerHTML = `
+                            <div class="response-header">
+                                <span class="response-time">⚠️ Respuesta vacía | ${responseTime}ms</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${dataId}')">📋 Copiar</button>
+                            </div>
+                            <pre id="${dataId}">${formattedData}
+
+⚠️ NOTA: La respuesta está vacía o no contiene datos.
+💡 Verifica que haya registros en la base de datos para este filtro.</pre>
+                        `;
+                    } else {
+                        responseDiv.className = 'response active success';
+                        const recordCount = Array.isArray(data.data) ? data.data.length : 1;
+                        responseDiv.innerHTML = `
+                            <div class="response-header">
+                                <span class="response-time">✅ ${response.status} OK | ${responseTime}ms | ${recordCount} registro(s)</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${dataId}')">📋 Copiar</button>
+                            </div>
+                            <pre id="${dataId}">${formattedData}</pre>
+                        `;
+                    }
+                } else {
+                    responseDiv.className = 'response active error';
+                    responseDiv.innerHTML = `
+                        <div class="response-header">
+                            <span class="response-time">❌ Error ${response.status} | ${responseTime}ms</span>
+                            <button class="copy-btn" onclick="copyToClipboard('${dataId}')">📋 Copiar</button>
+                        </div>
+                        <pre id="${dataId}">${formattedData}</pre>
+                    `;
+                }
+            } catch (error) {
+                responseDiv.className = 'response active error';
+                responseDiv.innerHTML = `
+                    <div class="response-header">
+                        <span class="response-time">❌ Error de conexión</span>
+                    </div>
+                    <pre>❌ Error: ${error.message}
+
+🔍 Detalles:
+- Endpoint: ${endpoint}
+- Error: ${error.name}
+- Mensaje: ${error.message}
+
+💡 Sugerencias:
+1. Verifica que el servidor esté corriendo en ${API_BASE}
+2. Comprueba que MongoDB esté conectado
+3. Revisa la consola del servidor para más detalles</pre>
+                `;
+                console.error('Error en test():', error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Copiar al portapapeles
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copiado';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Error copiando:', err);
+                alert('Error al copiar al portapapeles');
+            });
+        }
+
+        // Descargar CSV
+        function descargarCSV() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.classList.add('active');
+            
+            window.open(`${API_BASE}/api/sensores/exportar/csv`, '_blank');
+            
+            setTimeout(() => {
+                loadingOverlay.classList.remove('active');
+            }, 2000);
+        }
+
+        // Verificar estado cada 30 segundos
+        setInterval(checkServerStatus, 30000);
     </script>
 </body>
 </html>

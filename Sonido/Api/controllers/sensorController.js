@@ -1,9 +1,6 @@
 const Sensor = require('../models/Sensor');
 const { validationResult } = require('express-validator');
 
-/**
- * Middleware helper para manejar errores de validación
- */
 const handleValidationErrors = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -16,7 +13,6 @@ const handleValidationErrors = (req, res) => {
   return null;
 };
 
-// Obtiene datos con filtros opcionales y paginación
 exports.getDatos = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -41,9 +37,9 @@ exports.getDatos = async (req, res, next) => {
     }
 
     if (minDecibeles || maxDecibeles) {
-      filtro['measurements.LAeq'] = {};
-      if (minDecibeles) filtro['measurements.LAeq'].$gte = parseFloat(minDecibeles);
-      if (maxDecibeles) filtro['measurements.LAeq'].$lte = parseFloat(maxDecibeles);
+      filtro['object.LAeq'] = {};
+      if (minDecibeles) filtro['object.LAeq'].$gte = parseFloat(minDecibeles);
+      if (maxDecibeles) filtro['object.LAeq'].$lte = parseFloat(maxDecibeles);
     }
 
     const pageInt = parseInt(page);
@@ -75,7 +71,6 @@ exports.getDatos = async (req, res, next) => {
   }
 };
 
-// Obtiene un documento específico por su ID
 exports.getDatoById = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -101,7 +96,6 @@ exports.getDatoById = async (req, res, next) => {
   }
 };
 
-// Obtiene las últimas N mediciones
 exports.getUltimas = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -126,7 +120,6 @@ exports.getUltimas = async (req, res, next) => {
   }
 };
 
-// Obtiene el rango de fechas disponible
 exports.getRangoFechas = async (req, res, next) => {
   try {
     const rango = await Sensor.aggregate([
@@ -153,7 +146,6 @@ exports.getRangoFechas = async (req, res, next) => {
   }
 };
 
-// Búsqueda avanzada con múltiples filtros
 exports.buscarAvanzado = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -173,6 +165,7 @@ exports.buscarAvanzado = async (req, res, next) => {
 
     if (texto) {
       filtro.$or = [
+        { devAddr: new RegExp(texto, 'i') },
         { 'deviceInfo.deviceName': new RegExp(texto, 'i') },
         { 'deviceInfo.tags.Address': new RegExp(texto, 'i') },
         { 'deviceInfo.tags.Description': new RegExp(texto, 'i') }
@@ -186,9 +179,9 @@ exports.buscarAvanzado = async (req, res, next) => {
     }
 
     if (minDecibeles || maxDecibeles) {
-      filtro['measurements.LAeq'] = {};
-      if (minDecibeles) filtro['measurements.LAeq'].$gte = parseFloat(minDecibeles);
-      if (maxDecibeles) filtro['measurements.LAeq'].$lte = parseFloat(maxDecibeles);
+      filtro['object.LAeq'] = {};
+      if (minDecibeles) filtro['object.LAeq'].$gte = parseFloat(minDecibeles);
+      if (maxDecibeles) filtro['object.LAeq'].$lte = parseFloat(maxDecibeles);
     }
 
     const pageInt = parseInt(page);
@@ -220,7 +213,6 @@ exports.buscarAvanzado = async (req, res, next) => {
   }
 };
 
-// Exporta datos a formato CSV
 exports.exportarCSV = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -242,19 +234,19 @@ exports.exportarCSV = async (req, res, next) => {
       .limit(limitInt)
       .lean();
 
-    let csv = 'Fecha,Dispositivo,Dirección,LAeq (dB),LAI,LAImax,Batería (%),Frecuencia\n';
+    let csv = 'Fecha,Dispositivo,DevAddr,LAeq (dB),LAI,LAImax,Batería (%),Frecuencia\n';
     
     datos.forEach(d => {
       const fecha = new Date(d.time).toLocaleString('es-CO', { timeZone: 'America/Bogota' });
       const dispositivo = (d.deviceInfo?.deviceName || '').replace(/"/g, '""');
-      const direccion = (d.deviceInfo?.tags?.Address || '').replace(/"/g, '""');
-      const laeq = d.measurements?.LAeq || '';
-      const lai = d.measurements?.LAI || '';
-      const laimax = d.measurements?.LAImax || '';
-      const bateria = d.measurements?.battery || '';
+      const devAddr = d.devAddr || '';
+      const laeq = d.object?.LAeq || '';
+      const lai = d.object?.LAI || '';
+      const laimax = d.object?.LAImax || '';
+      const bateria = d.object?.battery || d.batteryLevel || '';
       const frecuencia = d.txInfo?.frequency || '';
 
-      csv += `"${fecha}","${dispositivo}","${direccion}",${laeq},${lai},${laimax},${bateria},${frecuencia}\n`;
+      csv += `"${fecha}","${dispositivo}","${devAddr}",${laeq},${lai},${laimax},${bateria},${frecuencia}\n`;
     });
 
     const BOM = '\uFEFF';
@@ -266,7 +258,6 @@ exports.exportarCSV = async (req, res, next) => {
   }
 };
 
-// Calcula estadísticas agregadas por hora
 exports.estadisticasHora = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -288,15 +279,15 @@ exports.estadisticasHora = async (req, res, next) => {
       {
         $project: {
           hora: { $hour: '$time' },
-          'measurements.LAeq': 1
+          'object.LAeq': 1
         }
       },
       {
         $group: {
           _id: '$hora',
-          promedio: { $avg: '$measurements.LAeq' },
-          maximo: { $max: '$measurements.LAeq' },
-          minimo: { $min: '$measurements.LAeq' },
+          promedio: { $avg: '$object.LAeq' },
+          maximo: { $max: '$object.LAeq' },
+          minimo: { $min: '$object.LAeq' },
           cantidad: { $sum: 1 }
         }
       },
@@ -313,7 +304,6 @@ exports.estadisticasHora = async (req, res, next) => {
   }
 };
 
-// Calcula estadísticas agregadas por día
 exports.estadisticasDia = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -334,15 +324,15 @@ exports.estadisticasDia = async (req, res, next) => {
       {
         $project: {
           fecha: { $dateToString: { format: '%Y-%m-%d', date: '$time' } },
-          'measurements.LAeq': 1
+          'object.LAeq': 1
         }
       },
       {
         $group: {
           _id: '$fecha',
-          promedio: { $avg: '$measurements.LAeq' },
-          maximo: { $max: '$measurements.LAeq' },
-          minimo: { $min: '$measurements.LAeq' },
+          promedio: { $avg: '$object.LAeq' },
+          maximo: { $max: '$object.LAeq' },
+          minimo: { $min: '$object.LAeq' },
           cantidad: { $sum: 1 }
         }
       },
@@ -360,7 +350,6 @@ exports.estadisticasDia = async (req, res, next) => {
   }
 };
 
-// Obtiene alertas cuando los valores exceden umbrales
 exports.getAlertas = async (req, res, next) => {
   try {
     const validationError = handleValidationErrors(req, res);
@@ -371,8 +360,8 @@ exports.getAlertas = async (req, res, next) => {
 
     const alertas = await Sensor.find({
       $or: [
-        { 'measurements.LAeq': { $lt: parseFloat(umbralBajo) } },
-        { 'measurements.LAeq': { $gt: parseFloat(umbralAlto) } }
+        { 'object.LAeq': { $lt: parseFloat(umbralBajo) } },
+        { 'object.LAeq': { $gt: parseFloat(umbralAlto) } }
       ]
     })
       .sort({ time: -1 })
