@@ -6,7 +6,9 @@ import {
   ResponsiveContainer
 } from "recharts";
 
-const API = "http://localhost:3000/api";
+//const API = "http://localhost:3000/api";
+const API = "https://qa.hermesoft.com/api";
+
 
 export function DashboardSoterrados() {
   const [vista, setVista] = useState("inicio");
