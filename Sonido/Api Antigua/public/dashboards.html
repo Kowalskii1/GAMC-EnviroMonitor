@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔊 Dashboard WS302 - Monitoreo Acústico en Tiempo Real</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --accent: #f093fb;
+            --dark: #0a0e27;
+            --success: #00ff00;
+            --danger: #ff4757;
+            --warning: #ffdd00;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: #fff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .nav-container {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 5px 30px rgba(0, 0, 0, 0.5);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 2em;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 12px 25px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+
+        .nav-tab:hover {
+            background: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .nav-tab.active {
+            background: var(--primary);
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .status-badge {
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95em;
+        }
+
+        .status-badge.online {
+            background: var(--success);
+            color: #000;
+            animation: pulse 2s infinite;
+        }
+
+        .status-badge.error {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .status-badge.loading {
+            background: var(--warning);
+            color: #000;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .dashboard-section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        .dashboard-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 40px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero h1 {
+            font-size: 3em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 20px rgba(0,0,0,0.5);
+        }
+
+        .hero p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: linear-gradient(145deg, #1e2139, #252940);
+            border-radius: 20px;
+            padding: 35px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .stat-card:hover::before {
+            left: 100%;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.5);
+            border-color: var(--primary);
+        }
+
+        .stat-icon {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+        }
+
+        .stat-value {
+            font-size: 3.2em;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 1em;
+            color: #a0a0a0;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .chart-wrapper {
+            background: linear-gradient(145deg, #1e2139, #252940);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            margin-bottom: 30px;
+        }
+
+        .chart-title {
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            text-align: center;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .empty-state {
+            background: rgba(255, 221, 0, 0.1);
+            border: 3px solid var(--warning);
+            border-radius: 15px;
+            padding: 60px;
+            text-align: center;
+            font-size: 1.5em;
+            margin: 60px 0;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th {
+            background: var(--primary);
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .data-table tr:hover {
+            background: rgba(102, 126, 234, 0.2);
+        }
+
+        .btn-download {
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-download:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        .alert-box {
+            background: rgba(255, 71, 87, 0.2);
+            border: 3px solid var(--danger);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .alert-box.active {
+            display: block;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        @media (max-width: 768px) {
+            .logo { font-size: 1.5em; }
+            .nav-tabs { flex-direction: column; width: 100%; }
+            .nav-tab { text-align: center; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-container">
+        <div class="logo">
+            🔊 <span>WS302 Monitor</span>
+        </div>
+        <div class="nav-tabs">
+            <div class="nav-tab active" onclick="switchTab('tiempo-real')">⚡ Tiempo Real</div>
+            <div class="nav-tab" onclick="switchTab('estadisticas')">📊 Estadísticas</div>
+            <div class="nav-tab" onclick="switchTab('datos')">📋 Datos</div>
+            <div class="nav-tab" onclick="switchTab('alertas')">⚠️ Alertas</div>
+        </div>
+        <div id="statusBadge" class="status-badge loading">
+            <span>⏳</span>
+            <span>Conectando...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- DASHBOARD TIEMPO REAL -->
+        <div id="tiempo-real" class="dashboard-section active">
+            <div class="hero">
+                <h1>⚡ Monitoreo en Tiempo Real</h1>
+                <p>Datos actualizados automáticamente cada 10 segundos</p>
+            </div>
+
+            <div id="alertaBanner" class="alert-box">
+                ⚠️ <strong>ALERTA:</strong> Se detectaron niveles de ruido fuera de rango
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-value" id="totalRegistros">--</div>
+                    <div class="stat-label">Total Mediciones</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-value" id="promedioLAeq">--</div>
+                    <div class="stat-label">Promedio LAeq (dB)</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">🔥</div>
+                    <div class="stat-value" id="maxLAeq">--</div>
+                    <div class="stat-label">Máximo LAeq (dB)</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">❄️</div>
+                    <div class="stat-value" id="minLAeq">--</div>
+                    <div class="stat-label">Mínimo LAeq (dB)</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">🔋</div>
+                    <div class="stat-value" id="bateriaProm">--</div>
+                    <div class="stat-label">Batería Promedio</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">⏰</div>
+                    <div class="stat-value" id="ultimaActualizacion">--</div>
+                    <div class="stat-label">Última Actualización</div>
+                </div>
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                ⚠️ No hay datos disponibles en la base de datos<br>
+                <small style="font-size: 0.6em; margin-top: 20px; display: block; opacity: 0.8;">
+                    Verifica que los sensores estén enviando información
+                </small>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">📉 Últimas 50 Mediciones LAeq</h3>
+                <canvas id="lineChart"></canvas>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">🔋 Nivel de Batería de Sensores</h3>
+                <canvas id="batteryChart"></canvas>
+            </div>
+        </div>
+
+        <!-- DASHBOARD ESTADÍSTICAS -->
+        <div id="estadisticas" class="dashboard-section">
+            <div class="hero">
+                <h1>📊 Análisis Estadístico</h1>
+                <p>Patrones de ruido y tendencias temporales</p>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">⏰ Promedio LAeq por Hora del Día</h3>
+                <canvas id="hourChart"></canvas>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">📅 Comparación Últimos 7 Días</h3>
+                <canvas id="daysChart"></canvas>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">🎯 Distribución de Niveles LAeq</h3>
+                <canvas id="histogramChart"></canvas>
+            </div>
+        </div>
+
+        <!-- DASHBOARD DATOS -->
+        <div id="datos" class="dashboard-section">
+            <div class="hero">
+                <h1>📋 Datos Detallados</h1>
+                <p>Registros completos de sensores</p>
+                <div style="margin-top: 20px;">
+                    <button class="btn-download" onclick="descargarCSV()">
+                        📥 Descargar CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">📊 Últimos 50 Registros</h3>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>Dispositivo</th>
+                                <th>Fecha/Hora</th>
+                                <th>LAeq (dB)</th>
+                                <th>LAI (dB)</th>
+                                <th>LAImax (dB)</th>
+                                <th>Batería</th>
+                                <th>Ubicación</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD ALERTAS -->
+        <div id="alertas" class="dashboard-section">
+            <div class="hero">
+                <h1>⚠️ Sistema de Alertas</h1>
+                <p>Valores fuera del rango normal (50-80 dB)</p>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 class="chart-title">🚨 Alertas Activas</h3>
+                <div id="alertasContainer">
+                    <p style="text-align: center; padding: 40px; opacity: 0.7;">
+                        Cargando alertas...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ API HOSTEADA
+        const API_BASE = 'https://qa.hermesoft.com';
+        
+        let charts = {};
+        let updateInterval;
+
+        Chart.defaults.color = '#fff';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+
+        // INICIALIZAR GRÁFICAS
+        function initCharts() {
+            // Gráfica LAeq
+            charts.lineChart = new Chart(document.getElementById('lineChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'LAeq (dB)',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: true } },
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
+                    }
+                }
+            });
+
+            // Gráfica Batería
+            charts.batteryChart = new Chart(document.getElementById('batteryChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Batería (%)',
+                        data: [],
+                        borderColor: '#00ff00',
+                        backgroundColor: 'rgba(0, 255, 0, 0.2)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#00ff00'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: true } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
+                    }
+                }
+            });
+
+            // Gráfica por Hora
+            charts.hourChart = new Chart(document.getElementById('hourChart'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Promedio LAeq (dB)',
+                        data: [],
+                        backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                        borderColor: '#764ba2',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
+                    }
+                }
+            });
+
+            // Gráfica por Días
+            charts.daysChart = new Chart(document.getElementById('daysChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Promedio',
+                            data: [],
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Máximo',
+                            data: [],
+                            borderColor: '#ff4757',
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Mínimo',
+                            data: [],
+                            borderColor: '#00ff00',
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
+                    }
+                }
+            });
+
+            // Histograma
+            charts.histogramChart = new Chart(document.getElementById('histogramChart'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Frecuencia',
+                        data: [],
+                        backgroundColor: 'rgba(240, 147, 251, 0.8)',
+                        borderColor: '#f093fb',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: true } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
+                    }
+                }
+            });
+        }
+
+        // CARGAR DATOS
+        async function cargarDatos() {
+            try {
+                console.log('🔄 Cargando datos desde:', API_BASE);
+
+                // 1. Últimas mediciones
+                const respUltimas = await fetch(`${API_BASE}/api/sensores/ultimas?cantidad=50`);
+                const ultimas = await respUltimas.json();
+
+                console.log('📦 Ultimas:', ultimas);
+
+                if (!ultimas.success || !ultimas.data || ultimas.data.length === 0) {
+                    document.getElementById('emptyState').style.display = 'block';
+                    updateStatus('error', 'Sin datos');
+                    return;
+                }
+
+                document.getElementById('emptyState').style.display = 'none';
+                updateStatus('online', `${ultimas.cantidad} registros`);
+
+                // Actualizar gráficas
+                const labels = ultimas.data.map(d => {
+                    const fecha = new Date(d.time);
+                    return fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                });
+
+                const laeqData = ultimas.data.map(d => d.measurements?.LAeq || 0);
+                const batteryData = ultimas.data.map(d => d.measurements?.battery || 0);
+
+                charts.lineChart.data.labels = labels;
+                charts.lineChart.data.datasets[0].data = laeqData;
+                charts.lineChart.update();
+
+                charts.batteryChart.data.labels = labels;
+                charts.batteryChart.data.datasets[0].data = batteryData;
+                charts.batteryChart.update();
+
+                // 2. Resumen
+                const respResumen = await fetch(`${API_BASE}/api/estadisticas/resumen`);
+                const resumen = await respResumen.json();
+
+                if (resumen.success && resumen.data) {
+                    document.getElementById('totalRegistros').textContent = resumen.data.totalMediciones || 0;
+                    document.getElementById('promedioLAeq').textContent = (resumen.data.promedioLAeq || 0).toFixed(1);
+                    document.getElementById('maxLAeq').textContent = (resumen.data.maxLAeq || 0).toFixed(1);
+                    document.getElementById('minLAeq').textContent = (resumen.data.minLAeq || 0).toFixed(1);
+                    document.getElementById('bateriaProm').textContent = (resumen.data.bateriaProm || 0).toFixed(0) + '%';
+                }
+
+                document.getElementById('ultimaActualizacion').textContent = new Date().toLocaleTimeString('es-ES');
+
+                // 3. Por hora
+                const respHora = await fetch(`${API_BASE}/api/estadisticas/por-hora`);
+                const hora = await respHora.json();
+
+                if (hora.success && hora.data) {
+                    charts.hourChart.data.labels = hora.data.map(d => `${d._id}:00h`);
+                    charts.hourChart.data.datasets[0].data = hora.data.map(d => d.promedioLAeq);
+                    charts.hourChart.update();
+                }
+
+                // 4. Por días
+                const respDias = await fetch(`${API_BASE}/api/estadisticas/comparacion-dias?dias=7`);
+                const dias = await respDias.json();
+
+                if (dias.success && dias.data) {
+                    charts.daysChart.data.labels = dias.data.map(d => d._id);
+                    charts.daysChart.data.datasets[0].data = dias.data.map(d => d.promedioLAeq);
+                    charts.daysChart.data.datasets[1].data = dias.data.map(d => d.maxLAeq);
+                    charts.daysChart.data.datasets[2].data = dias.data.map(d => d.minLAeq);
+                    charts.daysChart.update();
+                }
+
+                // 5. Histograma
+                const histogram = createHistogram(laeqData);
+                charts.histogramChart.data.labels = histogram.labels;
+                charts.histogramChart.data.datasets[0].data = histogram.values;
+                charts.histogramChart.update();
+
+                // 6. Tabla
+                actualizarTabla(ultimas.data);
+
+                // 7. Alertas
+                await cargarAlertas();
+
+            } catch (error) {
+                console.error('❌ Error:', error);
+                updateStatus('error', error.message);
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        }
+
+        async function cargarAlertas() {
+            try {
+                const respAlertas = await fetch(`${API_BASE}/api/sensores/alertas?umbralBajo=50&umbralAlto=80`);
+                const alertas = await respAlertas.json();
+
+                const container = document.getElementById('alertasContainer');
+                const banner = document.getElementById('alertaBanner');
+
+                if (alertas.success && alertas.data && alertas.data.length > 0) {
+                    banner.classList.add('active');
+                    
+                    container.innerHTML = alertas.data.map(a => `
+                        <div style="background: rgba(255, 71, 87, 0.2); border: 2px solid #ff4757; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="font-size: 1.3em;">🚨 ${a.deviceInfo?.deviceName || 'Sensor'}</strong>
+                                    <p style="margin-top: 10px;">LAeq: <strong>${a.measurements?.LAeq || 0} dB</strong></p>
+                                    <p style="opacity: 0.8; font-size: 0.9em; margin-top: 5px;">
+                                        ${new Date(a.time).toLocaleString('es-ES')}
+                                    </p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <p>📍 ${a.deviceInfo?.tags?.Location || 'N/A'}</p>
+                                    <p style="font-size: 0.9em; opacity: 0.8; margin-top: 5px;">
+                                        ${a.measurements?.LAeq < 50 ? '⬇️ Bajo umbral' : '⬆️ Sobre umbral'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    banner.classList.remove('active');
+                    container.innerHTML = '<p style="text-align: center; padding: 40px; opacity: 0.7;">✅ No hay alertas activas</p>';
+                }
+            } catch (error) {
+                console.error('Error cargando alertas:', error);
+            }
+        }
+
+        function createHistogram(data) {
+            if (data.length === 0) return { labels: [], values: [] };
+            
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const bins = 12;
+            const binSize = (max - min) / bins;
+            const values = Array(bins).fill(0);
+            const labels = [];
+
+            for (let i = 0; i < bins; i++) {
+                const start = min + (i * binSize);
+                const end = start + binSize;
+                labels.push(`${start.toFixed(0)}-${end.toFixed(0)} dB`);
+            }
+
+            data.forEach(value => {
+                const index = Math.min(Math.floor((value - min) / binSize), bins - 1);
+                values[index]++;
+            });
+
+            return { labels, values };
+        }
+
+        function actualizarTabla(datos) {
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = datos.map(d => `
+                <tr>
+                    <td><strong>${d.deviceInfo?.deviceName || 'N/A'}</strong></td>
+                    <td>${new Date(d.time).toLocaleString('es-ES')}</td>
+                    <td style="color: #667eea; font-weight: bold; font-size: 1.1em;">${(d.measurements?.LAeq || 0).toFixed(1)}</td>
+                    <td>${(d.measurements?.LAI || 0).toFixed(1)}</td>
+                    <td>${(d.measurements?.LAImax || 0).toFixed(1)}</td>
+                    <td style="color: ${d.measurements?.battery > 50 ? '#00ff00' : '#ff4757'};">
+                        ${(d.measurements?.battery || 0).toFixed(0)}%
+                    </td>
+                    <td>${d.deviceInfo?.tags?.Location || 'N/A'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStatus(status, text) {
+            const badge = document.getElementById('statusBadge');
+            badge.className = `status-badge ${status}`;
+            const icon = status === 'online' ? '✅' : status === 'error' ? '❌' : '⏳';
+            badge.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.dashboard-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function descargarCSV() {
+            window.open(`${API_BASE}/api/sensores/exportar/csv`, '_blank');
+        }
+
+        // INICIAR
+        initCharts();
+        cargarDatos();
+        setInterval(cargarDatos, 10000); // Actualizar cada 10 segundos
+
+        console.log('✅ Dashboard inicializado');
+        console.log('🌐 API:', API_BASE);
+    </script>
+</body>
+</html>

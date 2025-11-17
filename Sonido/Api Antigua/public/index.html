@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnviroMonitor - Sistema de Monitoreo Ambiental WS302</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        /* Tu CSS completo sin cambios - mantengo el diseño que te gusta */
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #0f172a;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #06b6d4;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        /* Mantengo todo tu CSS exactamente igual... */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-lg);
+            padding: 1rem 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .header.scrolled {
+            padding: 0.5rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .logo i {
+            font-size: 32px;
+            animation: soundwave 2s ease-in-out infinite;
+        }
+
+        @keyframes soundwave {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.2); }
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(239, 246, 255, 0.8);
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .status-indicator.online {
+            background: rgba(209, 250, 229, 0.8);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
+        .status-indicator.offline {
+            background: rgba(254, 226, 226, 0.8);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .status-dot.online {
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+        }
+
+        .status-dot.offline {
+            background: var(--danger);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 80px;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            z-index: 999;
+            padding: 20px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-lg);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-nav .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .sidebar-nav .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            color: var(--secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-nav .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-nav .nav-link:hover {
+            background: linear-gradient(135deg, #667eea15, #764ba215);
+            color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .sidebar-nav .nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .sidebar-nav .nav-link.active::before {
+            transform: scaleY(1);
+        }
+
+        .sidebar-nav .nav-link i {
+            font-size: 20px;
+            min-width: 24px;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-nav .nav-link:hover i {
+            transform: scale(1.2);
+        }
+
+        .main {
+            margin-left: 300px;
+            margin-top: 80px;
+            padding: 30px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .pagetitle {
+            margin-bottom: 30px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .pagetitle h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .breadcrumb-item {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .breadcrumb-item.active {
+            color: white;
+            font-weight: 600;
+        }
+
+        .card {
+            background: white;
+            border: none;
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 30px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--light);
+        }
+
+        .info-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+        }
+
+        .info-card h6 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--secondary);
+            margin: 0;
+            line-height: 1;
+        }
+
+        .info-card .label {
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+        }
+
+        .card-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover .card-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .icon-blue {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .icon-green {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .icon-orange {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+
+        .icon-red {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            padding: 10px;
+        }
+
+        .table {
+            margin: 0;
+        }
+
+        .table thead th {
+            background: var(--light);
+            color: var(--secondary);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: none;
+            padding: 16px;
+        }
+
+        .table tbody td {
+            padding: 16px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .table tbody tr:hover {
+            background: var(--light);
+        }
+
+        .badge {
+            font-weight: 600;
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .btn {
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5568d3, #6a3f8f);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+
+        .btn-export:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3em;
+        }
+
+        .alert {
+            border: none;
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .alert-info {
+            background: rgba(6, 182, 212, 0.1);
+            color: #0e7490;
+            border-left: 4px solid #06b6d4;
+        }
+
+        .device-card {
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .device-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+
+        .device-card h6 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        /* NUEVO: Badge informativo del rango de datos */
+        .data-info-badge {
+            display: inline-block;
+            padding: 10px 16px;
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1199px) {
+            .sidebar {
+                left: -280px;
+            }
+
+            .sidebar.show {
+                left: 0;
+            }
+
+            .main {
+                margin-left: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .pagetitle h1 {
+                font-size: 24px;
+            }
+
+            .card-body {
+                padding: 16px;
+            }
+
+            .info-card h6 {
+                font-size: 24px;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--light);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3 fw-bold text-primary">Cargando datos...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <a href="#" class="logo">
+                        <i class="bi bi-soundwave"></i>
+                        <span>EnviroMonitor</span>
+                    </a>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="status-indicator d-inline-flex" id="serverStatus">
+                        <span class="status-dot"></span>
+                        <span id="statusText">Verificando sistema...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <ul class="sidebar-nav">
+            <li class="nav-item">
+                <a class="nav-link active" data-section="dashboard">
+                    <i class="bi bi-grid-fill"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="devices">
+                    <i class="bi bi-router-fill"></i>
+                    <span>Dispositivos</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="data">
+                    <i class="bi bi-table"></i>
+                    <span>Datos en Vivo</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="analytics">
+                    <i class="bi bi-bar-chart-fill"></i>
+                    <span>Análisis</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-section="export">
+                    <i class="bi bi-download"></i>
+                    <span>Exportar</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+
+        <!-- Dashboard Section -->
+        <section id="section-dashboard" class="content-section">
+            <div class="pagetitle">
+                <h1>📊 Dashboard Principal</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Dashboard</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <!-- NUEVO: Badge informativo automático -->
+            <div class="data-info-badge" id="dataRangeBadge">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>Cargando información del rango de datos...</strong>
+            </div>
+
+            <!-- Info Cards -->
+            <div class="row">
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-blue me-3">
+                                    <i class="bi bi-card-list"></i>
+                                </div>
+                                <div>
+                                    <h6 id="totalMediciones">0</h6>
+                                    <p class="label mb-0">Total Mediciones</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-green me-3">
+                                    <i class="bi bi-router-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 id="totalDispositivos">0</h6>
+                                    <p class="label mb-0">Dispositivos Activos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-orange me-3">
+                                    <i class="bi bi-volume-up-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 id="promedioLAeq">0.0</h6>
+                                    <p class="label mb-0">Nivel De sonido Promedio (dB)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xxl-3 col-md-6">
+                    <div class="card info-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon icon-red me-3">
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                </div>
+                                <div>
+                                    <h6 id="maxLAeq">0.0</h6>
+                                    <p class="label mb-0">Nivel De sonido Máximo (dB)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">📈 Niveles de Ruido por Hora</h5>
+                            <div class="chart-container">
+                                <canvas id="soundLevelsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">🏆 Top 5 Dispositivos</h5>
+                            <div class="chart-container">
+                                <canvas id="deviceComparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title" id="weeklyTrendTitle">📅 Tendencia Temporal</h5>
+                            <div class="chart-container">
+                                <canvas id="weeklyTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Devices Section -->
+        <section id="section-devices" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>📱 Dispositivos LoRaWAN</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Dispositivos</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="row" id="devicesGrid">
+                <!-- Devices will be loaded here -->
+            </div>
+
+            <!-- NOTE: Los datos de esta sección se importan en la función loadDevices()
+                 definida en el <script> al final de este archivo. Esa función llama:
+                 fetchAPI('/sensores/devices') y luego renderiza los elementos dentro
+                 del contenedor con id="devicesGrid".
+                 Además la navegación ejecuta loadSectionData -> loadDevices() al
+                 seleccionar "Dispositivos" en la sidebar. -->
+        </section>
+
+        <!-- Data Section -->
+        <section id="section-data" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>📊 Datos en Tiempo Real</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Datos</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Últimas 100 Mediciones</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="dataTable">
+                            <thead>
+                                <tr>
+                                    <th>Fecha/Hora</th>
+                                    <th>Dispositivo</th>
+                                    <th>Registro de Dispositivo</th>
+                                    <th>Nivel de Sonido Registrado (dB)</th>
+                                    <th>Promedio de nivel de Sonido</th>
+                                    <th>Máximo de pico</th>
+                                    <th>Nivel de Batreía</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section id="section-analytics" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>📊 Análisis Temporal</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Análisis</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">📅 Análisis por Día de la Semana</h5>
+                            <div class="chart-container">
+                                <canvas id="weekdayChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">📈 Comparación Temporal</h5>
+                            <div class="chart-container">
+                                <canvas id="comparisonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Export Section -->
+        <section id="section-export" class="content-section" style="display: none;">
+            <div class="pagetitle">
+                <h1>💾 Exportar Datos</h1>
+                <nav>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">Inicio</li>
+                        <li class="breadcrumb-item active">Exportar</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Configuración de Exportación</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Fecha Inicio</label>
+                                <input type="date" class="form-control" id="exportFechaInicio">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Fecha Fin</label>
+                                <input type="date" class="form-control" id="exportFechaFin">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Límite de Registros</label>
+                                <input type="number" class="form-control" id="exportLimit" value="10000" max="50000">
+                                <small class="text-muted">Máximo: 50,000 registros</small>
+                            </div>
+                            <button class="btn btn-export w-100" onclick="exportarCSV()">
+                                <i class="bi bi-download me-2"></i>Descargar CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Información del Archivo</h5>
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle me-2"></i>Campos Incluidos</h6>
+                                <ul class="mt-2 mb-0">
+                                    <li>Fecha y hora completa</li>
+                                    <li>Nombre del dispositivo</li>
+                                    <li>Dirección del dispositivo (DevAddr)</li>
+                                    <li>LAeq - Nivel de sonido equivalente</li>
+                                    <li>LAI - Promedio con ponderación temporal</li>
+                                    <li>LAImax - Nivel máximo registrado</li>
+                                    <li>Nivel de batería (%)</li>
+                                    <li>Frecuencia de transmisión</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // ========== CONFIGURACIÓN ==========
+        const API_BASE = 'http://localhost:3000/api';
+        let charts = {};
+        
+        // Variable para almacenar el rango de fechas detectado
+        let dataRange = {
+            minDate: null,
+            maxDate: null,
+            diasDisponibles: 0
+        };
+        
+        // ========== UTILIDADES ==========
+        function logError(context, error, data = null) {
+            console.group(`❌ ERROR en ${context}`);
+            console.error('Error:', error);
+            if (data) console.log('Datos recibidos:', JSON.stringify(data, null, 2));
+            console.trace();
+            console.groupEnd();
+        }
+
+        function logSuccess(context, data) {
+            console.group(`✅ ÉXITO en ${context}`);
+            console.log('Datos:', data);
+            console.groupEnd();
+        }
+
+        function toNumber(value, defaultValue = 0) {
+            if (value === null || value === undefined || value === '') {
+                return defaultValue;
+            }
+            const num = parseFloat(value);
+            return isNaN(num) ? defaultValue : num;
+        }
+
+        function formatNumber(value, decimals = 1) {
+            const num = toNumber(value);
+            return num.toFixed(decimals);
+        }
+
+        // ========== DETECCIÓN AUTOMÁTICA DE RANGO DE FECHAS ==========
+        async function detectarRangoDatos() {
+            try {
+                console.log('🔍 Detectando rango automático de datos...');
+                
+                const resumen = await fetchAPI('/estadisticas/resumen');
+                
+                if (resumen.success && resumen.rangoFechas) {
+                    dataRange.minDate = new Date(resumen.rangoFechas.inicio);
+                    dataRange.maxDate = new Date(resumen.rangoFechas.fin);
+                    dataRange.diasDisponibles = Math.ceil((dataRange.maxDate - dataRange.minDate) / (1000 * 60 * 60 * 24));
+                    
+                    const formatoFecha = (fecha) => {
+                        return fecha.toLocaleDateString('es-CO', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        });
+                    };
+                    
+                    const badge = document.getElementById('dataRangeBadge');
+                    badge.innerHTML = `
+                        <i class="bi bi-calendar-range-fill me-2"></i>
+                        <strong>Datos disponibles:</strong> ${formatoFecha(dataRange.minDate)} - ${formatoFecha(dataRange.maxDate)} 
+                        (${dataRange.diasDisponibles} días de mediciones)
+                    `;
+                    
+                    console.log('✅ Rango detectado:', dataRange);
+                    return true;
+                }
+                
+                console.warn('⚠️  No se pudo detectar el rango de fechas');
+                return false;
+                
+            } catch (error) {
+                console.error('❌ Error detectando rango:', error);
+                const badge = document.getElementById('dataRangeBadge');
+                badge.innerHTML = `
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>No se pudo detectar el rango de datos.</strong> Usando valores por defecto.
+                `;
+                badge.style.borderLeft = '4px solid var(--warning)';
+                badge.style.background = 'rgba(245, 158, 11, 0.1)';
+                return false;
+            }
+        }
+
+        // ========== DETERMINAR DÍAS ÓPTIMOS PARA GRÁFICAS ==========
+        function determinarDiasOptimos() {
+            // Si hay menos de 7 días de datos, usar todos los disponibles
+            if (dataRange.diasDisponibles <= 7) {
+                return dataRange.diasDisponibles;
+            }
+            // Si hay menos de 30 días, usar 7-14 días
+            else if (dataRange.diasDisponibles <= 30) {
+                return Math.min(14, dataRange.diasDisponibles);
+            }
+            // Si hay más de 30 días, usar los últimos 30
+            else {
+                return 30;
+            }
+        }
+
+        // ========== SCROLL HEADER ==========
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // ========== INICIALIZACIÓN ==========
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🚀 Iniciando aplicación...');
+            await checkServerStatus();
+            await detectarRangoDatos(); // ✨ NUEVO: Detectar rango automático
+            await loadDashboard();
+            setupNavigation();
+        });
+
+        // ========== VERIFICAR SERVIDOR ==========
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                logSuccess('checkServerStatus', data);
+                
+                const statusElement = document.getElementById('serverStatus');
+                const statusText = document.getElementById('statusText');
+                
+                if (data.status === 'OK') {
+                    statusElement.classList.add('online');
+                    statusElement.classList.remove('offline');
+                    statusElement.querySelector('.status-dot').classList.add('online');
+                    statusElement.querySelector('.status-dot').classList.remove('offline');
+                    statusText.textContent = 'Sistema Operativo';
+                } else {
+                    statusElement.classList.add('offline');
+                    statusElement.querySelector('.status-dot').classList.add('offline');
+                    statusText.textContent = 'Sistema Degradado';
+                }
+            } catch (error) {
+                logError('checkServerStatus', error);
+                const statusElement = document.getElementById('serverStatus');
+                const statusText = document.getElementById('statusText');
+                statusElement.classList.add('offline');
+                statusElement.querySelector('.status-dot').classList.add('offline');
+                statusText.textContent = 'Sistema Desconectado';
+            }
+        }
+
+        // ========== NAVEGACIÓN ==========
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    
+                    document.querySelectorAll('.content-section').forEach(section => {
+                        section.style.display = 'none';
+                    });
+                    
+                    const sectionId = link.getAttribute('data-section');
+                    const section = document.getElementById(`section-${sectionId}`);
+                    if (section) {
+                        section.style.display = 'block';
+                        await loadSectionData(sectionId);
+                    }
+                });
+            });
+        }
+
+        // ========== CARGAR SECCIÓN ==========
+        async function loadSectionData(sectionId) {
+            showLoading();
+            try {
+                console.log(`📂 Cargando sección: ${sectionId}`);
+                switch(sectionId) {
+                    case 'dashboard':
+                        await loadDashboard();
+                        break;
+                    case 'devices':
+                        await loadDevices();
+                        break;
+                    case 'data':
+                        await loadDataTable();
+                        break;
+                    case 'analytics':
+                        await loadAnalytics();
+                        break;
+                    case 'export':
+                        setupExportDates();
+                        break;
+                }
+            } catch (error) {
+                logError(`loadSectionData(${sectionId})`, error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ========== DASHBOARD CON DETECCIÓN AUTOMÁTICA ==========
+        async function loadDashboard() {
+            try {
+                // Cargar resumen
+                const resumen = await fetchAPI('/estadisticas/resumen');
+                logSuccess('Resumen', resumen);
+                
+                if (resumen.success && resumen.data) {
+                    const data = resumen.data;
+                    document.getElementById('totalMediciones').textContent = 
+                        toNumber(data.totalMediciones, 0).toLocaleString('es-CO');
+                    document.getElementById('promedioLAeq').textContent = 
+                        formatNumber(data.promedioLAeq, 1);
+                    document.getElementById('maxLAeq').textContent = 
+                        formatNumber(data.maxLAeq, 1);
+                }
+
+                // Cargar dispositivos
+                const devices = await fetchAPI('/sensores/devices');
+                logSuccess('Devices', devices);
+                
+                if (devices.success) {
+                    document.getElementById('totalDispositivos').textContent = 
+                        toNumber(devices.total, 0).toString();
+                }
+
+                // ✨ USAR DÍAS ÓPTIMOS DETECTADOS AUTOMÁTICAMENTE
+                const diasOptimos = determinarDiasOptimos();
+                console.log(`📊 Usando ${diasOptimos} días para gráficas`);
+
+                // Actualizar título de tendencia
+                document.getElementById('weeklyTrendTitle').textContent = 
+                    `📅 Tendencia Últimos ${diasOptimos} Días`;
+
+                // Cargar gráficos con días óptimos
+                await loadHourlyChart(diasOptimos);
+                await loadDeviceComparisonChart(diasOptimos);
+                await loadWeeklyTrendChart(diasOptimos);
+                
+            } catch (error) {
+                logError('loadDashboard', error);
+            }
+        }
+
+        async function loadHourlyChart(dias) {
+            try {
+                const data = await fetchAPI(`/estadisticas/por-hora?dias=${dias}`);
+                logSuccess('Por hora', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    const ctx = document.getElementById('soundLevelsChart');
+                    if (charts.soundLevels) charts.soundLevels.destroy();
+                    
+                    const validData = data.data.filter(d => 
+                        d.promedioLAeq !== null && !isNaN(d.promedioLAeq)
+                    );
+                    
+                    if (validData.length === 0) {
+                        console.warn('⚠️  No hay datos válidos para gráfico por hora');
+                        return;
+                    }
+                    
+                    charts.soundLevels = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: validData.map(d => `${d._id}:00`),
+                            datasets: [{
+                                label: 'Nivel de sonido Promedio',
+                                data: validData.map(d => toNumber(d.promedioLAeq)),
+                                borderColor: 'rgb(79, 70, 229)',
+                                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }, {
+                                label: 'Nivel de sonido Máximo',
+                                data: validData.map(d => toNumber(d.maxLAeq)),
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.4,
+                                fill: false,
+                                pointRadius: 4,
+                                pointHoverRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { 
+                                    display: true, 
+                                    position: 'top',
+                                    labels: { font: { weight: 'bold' } }
+                                },
+                                title: {
+                                    display: true,
+                                    text: `Promedio de ${dias} días`,
+                                    font: { size: 12 }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Nivel (dB)' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadHourlyChart', error);
+            }
+        }
+
+        async function loadDeviceComparisonChart(dias) {
+            try {
+                const data = await fetchAPI(`/estadisticas/comparacion-dispositivos?dias=${dias}`);
+                logSuccess('Comparación dispositivos', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    const ctx = document.getElementById('deviceComparisonChart');
+                    if (charts.deviceComparison) charts.deviceComparison.destroy();
+                    
+                    const top5 = data.data.slice(0, 5);
+                    
+                    charts.deviceComparison = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: top5.map(d => d.deviceName || d._id),
+                            datasets: [{
+                                label: 'Nivel de sonido Promedio',
+                                data: top5.map(d => toNumber(d.promedioLAeq)),
+                                backgroundColor: [
+                                    'rgba(79, 70, 229, 0.8)',
+                                    'rgba(16, 185, 129, 0.8)',
+                                    'rgba(245, 158, 11, 0.8)',
+                                    'rgba(239, 68, 68, 0.8)',
+                                    'rgba(6, 182, 212, 0.8)'
+                                ],
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: `Últimos ${dias} días`,
+                                    font: { size: 12 }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'dB' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadDeviceComparisonChart', error);
+            }
+        }
+
+        async function loadWeeklyTrendChart(dias) {
+            try {
+                const data = await fetchAPI(`/estadisticas/comparacion-dias?dias=${dias}`);
+                logSuccess('Comparación días', data);
+                
+                if (data.success && data.data && data.data.length > 0) {
+                    const ctx = document.getElementById('weeklyTrendChart');
+                    if (charts.weeklyTrend) charts.weeklyTrend.destroy();
+                    
+                    charts.weeklyTrend = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.data.map(d => d.fecha),
+                            datasets: [{
+                                label: 'Promedio',
+                                data: data.data.map(d => toNumber(d.promedioLAeq)),
+                                borderColor: 'rgb(79, 70, 229)',
+                                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }, {
+                                label: 'Máximo',
+                                data: data.data.map(d => toNumber(d.maxLAeq)),
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.4,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: true } },
+                            scales: {
+                                y: {
+                                    beginAtZero: false,
+                                    title: { display: true, text: 'Nivel (dB)' }
+                                }
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadWeeklyTrendChart', error);
+            }
+        }
+
+        // ========== DISPOSITIVOS ==========
+        async function loadDevices() {
+            try {
+                const data = await fetchAPI('/sensores/devices');
+                logSuccess('Devices detail', data);
+                
+                if (data.success && data.data) {
+                    const grid = document.getElementById('devicesGrid');
+                    grid.innerHTML = '';
+                    
+                    data.data.forEach(device => {
+                        const bateria = toNumber(device.ultimoBateria);
+                        const laeq = toNumber(device.ultimoLAeq);
+                        const totalMed = toNumber(device.totalMediciones, 0);
+                        
+                        const batteryStatus = bateria >= 80 ? 'success' :
+                                            bateria >= 50 ? 'info' :
+                                            bateria >= 30 ? 'warning' : 'danger';
+                        
+                        const card = `
+                            <div class="col-lg-4 col-md-6">
+                                <div class="device-card">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">
+                                            <i class="bi bi-router-fill text-primary me-2"></i>
+                                            ${device.deviceName || device.devAddr}
+                                        </h6>
+                                        <span class="badge bg-${batteryStatus}">${formatNumber(bateria, 1)}%</span>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Registro de dispositivo</small>
+                                            <strong>${device.devAddr}</strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Nivel de sonido registrado</small>
+                                            <strong>${formatNumber(laeq, 1)} dB</strong>
+                                        </div>
+                                        <div class="col-12">
+                                            <small class="text-muted d-block">Última medición</small>
+                                            <strong>${new Date(device.ultimaMedicion).toLocaleString('es-CO')}</strong>
+                                        </div>
+                                        <div class="col-12">
+                                            <span class="badge bg-light text-dark">
+                                                📊 ${totalMed.toLocaleString('es-CO')} mediciones
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        grid.innerHTML += card;
+                    });
+                }
+            } catch (error) {
+                logError('loadDevices', error);
+            }
+        }
+
+        // ========== TABLA DE DATOS ==========
+        async function loadDataTable() {
+            try {
+                const data = await fetchAPI('/sensores/ultimas?cantidad=100');
+                logSuccess('Últimas mediciones', data);
+                
+                if (data.success && data.data) {
+                    const tbody = document.querySelector('#dataTable tbody');
+                    tbody.innerHTML = '';
+                    
+                    data.data.forEach(item => {
+                        const laeq = toNumber(item.object?.LAeq);
+                        const lai = toNumber(item.object?.LAI);
+                        const laimax = toNumber(item.object?.LAImax);
+                        const bateria = toNumber(item.object?.battery);
+                        
+                        const row = `
+                            <tr>
+                                <td>${new Date(item.time).toLocaleString('es-CO')}</td>
+                                <td><strong>${item.deviceInfo?.deviceName || 'N/A'}</strong></td>
+                                <td><code class="badge bg-secondary">${item.devAddr}</code></td>
+                                <td><strong class="text-primary">${formatNumber(laeq, 1)} dB</strong></td>
+                                <td>${formatNumber(lai, 1)}</td>
+                                <td>${formatNumber(laimax, 1)}</td>
+                                <td><span class="badge bg-${bateria >= 50 ? 'success' : 'warning'}">${formatNumber(bateria, 1)}%</span></td>
+                            </tr>
+                        `;
+                        tbody.innerHTML += row;
+                    });
+                }
+            } catch (error) {
+                logError('loadDataTable', error);
+            }
+        }
+
+        // ========== ANÁLISIS ==========
+        async function loadAnalytics() {
+            try {
+                const diasOptimos = determinarDiasOptimos();
+                
+                const weekdayData = await fetchAPI(`/estadisticas/por-dia-semana?dias=${diasOptimos}`);
+                logSuccess('Por día semana', weekdayData);
+                
+                if (weekdayData.success && weekdayData.data && weekdayData.data.length > 0) {
+                    const ctx = document.getElementById('weekdayChart');
+                    if (charts.weekday) charts.weekday.destroy();
+                    
+                    charts.weekday = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: weekdayData.data.map(d => d.diaSemana),
+                            datasets: [{
+                                label: 'Nivel de sonido Promedio(dB)',
+                                data: weekdayData.data.map(d => toNumber(d.promedioLAeq)),
+                                backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                                borderRadius: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                const compData = await fetchAPI(`/estadisticas/comparacion-dias?dias=${diasOptimos}`);
+                logSuccess('Comparación días analytics', compData);
+                
+                if (compData.success && compData.data && compData.data.length > 0) {
+                    const ctx = document.getElementById('comparisonChart');
+                    if (charts.comparison) charts.comparison.destroy();
+                    
+                    charts.comparison = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: compData.data.map(d => d.fecha),
+                            datasets: [{
+                                label: 'Promedio',
+                                data: compData.data.map(d => toNumber(d.promedioLAeq)),
+                                borderColor: 'rgb(79, 70, 229)',
+                                tension: 0.4
+                            }, {
+                                label: 'Máximo',
+                                data: compData.data.map(d => toNumber(d.maxLAeq)),
+                                borderColor: 'rgb(239, 68, 68)',
+                                tension: 0.4
+                            }, {
+                                label: 'Mínimo',
+                                data: compData.data.map(d => toNumber(d.minLAeq)),
+                                borderColor: 'rgb(16, 185, 129)',
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+            } catch (error) {
+                logError('loadAnalytics', error);
+            }
+        }
+
+        // ========== EXPORTAR ==========
+        function setupExportDates() {
+            // Usar el rango detectado automáticamente
+            if (dataRange.minDate && dataRange.maxDate) {
+                document.getElementById('exportFechaInicio').value = 
+                    dataRange.minDate.toISOString().split('T')[0];
+                document.getElementById('exportFechaFin').value = 
+                    dataRange.maxDate.toISOString().split('T')[0];
+            } else {
+                const today = new Date();
+                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                
+                document.getElementById('exportFechaInicio').value = weekAgo.toISOString().split('T')[0];
+                document.getElementById('exportFechaFin').value = today.toISOString().split('T')[0];
+            }
+        }
+
+        function exportarCSV() {
+            const fechaInicio = document.getElementById('exportFechaInicio').value;
+            const fechaFin = document.getElementById('exportFechaFin').value;
+            const limit = document.getElementById('exportLimit').value;
+            
+            let url = `${API_BASE}/sensores/exportar/csv?limit=${limit}`;
+            if (fechaInicio) url += `&fechaInicio=${fechaInicio}T00:00:00`;
+            if (fechaFin) url += `&fechaFin=${fechaFin}T23:59:59`;
+            
+            console.log('📥 Descargando CSV:', url);
+            showLoading();
+            window.open(url, '_blank');
+            setTimeout(hideLoading, 2000);
+        }
+
+        // ========== UTILIDADES ==========
+        async function fetchAPI(endpoint) {
+            try {
+                console.log(`🌐 Fetching: ${API_BASE}${endpoint}`);
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                logError(`fetchAPI(${endpoint})`, error);
+                throw error;
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
+        // ========== AUTO-REFRESH ==========
+        setInterval(checkServerStatus, 60000); // Cada 60 segundos
+    </script>
+
+</body>
+</html>
