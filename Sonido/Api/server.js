@@ -1,40 +1,56 @@
-require('dotenv').config();
+const path = require('path');
+
+if (!process.env.HTTP_PLATFORM_PORT) {
+    const dotenv = require('dotenv');
+    const envFiles = [
+        path.join(__dirname, '.env.production'),
+        path.join(__dirname, '.env')
+    ];
+    
+    let loaded = false;
+    for (const envFile of envFiles) {
+        const result = dotenv.config({ path: envFile });
+        if (!result.error) {
+            console.log(`✅ Variables cargadas desde: ${path.basename(envFile)}`);
+            loaded = true;
+            break;
+        }
+    }
+    
+    if (!loaded) {
+        console.warn('⚠️  No se encontró archivo .env');
+    }
+} else {
+    console.log('✅ Variables cargadas desde web.config (MonsterASP)');
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
 const morgan = require('morgan');
-const path = require('path');
 
-// Importar rutas
 const sensorRoutes = require('./routes/sensores');
 const estadisticasRoutes = require('./routes/estadisticas');
 const healthRoutes = require('./routes/health');
 const backupRoutes = require('./routes/backup');
 
-// Importar servicios de backup
 const { connectMySQL, closeMySQL } = require('./config/mysql');
 const backupService = require('./services/backupService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==================== MIDDLEWARES ====================
-
-// Compresión de respuestas
 app.use(compression());
 
-// Logging de peticiones (solo en desarrollo para mejor performance en producción)
 if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));
 } else {
     app.use(morgan('combined'));
 }
 
-// Parseo de JSON y URL-encoded
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS completamente abierto - SIN RESTRICCIONES
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
@@ -47,27 +63,21 @@ app.use((req, res, next) => {
     next();
 });
 
-// ==================== ARCHIVOS ESTÁTICOS ====================
-
-// Servir archivos estáticos desde la carpeta 'public'
 app.use(express.static(path.join(__dirname, 'public'), {
-    maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0, // Sin cache en dev
+    maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
     etag: true,
     index: 'index.html'
 }));
 
-// ==================== RUTAS DE API ====================
-
 app.use('/api/sensores', sensorRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
 app.use('/api/health', healthRoutes);
-app.use('/api/backup', backupRoutes); // 🔥 NUEVA RUTA DE BACKUP
+app.use('/api/backup', backupRoutes);
 
-// Ruta API info (solo JSON, no HTML)
 app.get('/api', (req, res) => {
     res.json({
         message: 'API de Monitoreo de Ruido Ambiental - LoRaWAN WS302',
-        version: '3.1.0', // 🔥 Actualizada versión
+        version: '3.1.0',
         database: 'emergentes',
         coleccion: 'sonido_raw',
         documentacion: `${req.protocol}://${req.get('host')}/`,
@@ -84,28 +94,18 @@ app.get('/api', (req, res) => {
                 estadisticasDia: '/api/sensores/estadisticas/dia'
             },
             estadisticas: {
-                // Análisis básico
                 resumen: '/api/estadisticas/resumen',
                 porHora: '/api/estadisticas/por-hora',
                 comparacionDias: '/api/estadisticas/comparacion-dias',
-                
-                // Análisis temporal avanzado
                 porDiaSemana: '/api/estadisticas/por-dia-semana',
                 tendencias: '/api/estadisticas/tendencias',
-                
-                // Análisis por dispositivo
                 comparacionDispositivos: '/api/estadisticas/comparacion-dispositivos',
                 dispositivosRanking: '/api/estadisticas/dispositivos-ranking',
-                
-                // Cumplimiento normativo
                 cumplimientoNormativo: '/api/estadisticas/cumplimiento-normativo',
                 picosRuido: '/api/estadisticas/picos-ruido',
-                
-                // Gestión de baterías
                 estadoBaterias: '/api/estadisticas/estado-baterias',
                 historialBateria: '/api/estadisticas/historial-bateria/:devAddr'
             },
-            // 🔥 NUEVOS ENDPOINTS DE BACKUP
             backup: {
                 status: '/api/backup/status',
                 execute: '/api/backup/execute',
@@ -115,32 +115,21 @@ app.get('/api', (req, res) => {
             health: '/api/health'
         },
         ejemplos: {
-            // Consultas básicas
             obtenerDatos: '/api/sensores/datos?limit=10&page=1',
             filtrarPorDecibeles: '/api/sensores/datos?minDecibeles=50&maxDecibeles=80',
             ultimas10: '/api/sensores/ultimas?cantidad=10',
             dispositivos: '/api/sensores/devices',
-            
-            // Estadísticas
             resumenCompleto: '/api/estadisticas/resumen',
             estadisticasHora: '/api/estadisticas/por-hora?dias=7',
             comparacionSemanal: '/api/estadisticas/comparacion-dias?dias=7',
             patronesDiaSemana: '/api/estadisticas/por-dia-semana?dias=30',
-            
-            // Análisis avanzado
             tendencias: '/api/estadisticas/tendencias?dias=30',
             rankingDispositivos: '/api/estadisticas/dispositivos-ranking?metrica=promedio',
             cumplimiento: '/api/estadisticas/cumplimiento-normativo?umbralDia=70&umbralNoche=60',
             picosRuido: '/api/estadisticas/picos-ruido?dias=7',
-            
-            // Gestión de dispositivos
             estadoBaterias: '/api/estadisticas/estado-baterias',
             historialBateria: '/api/estadisticas/historial-bateria/008ac7ec?dias=30',
-            
-            // Exportación
             exportarCSV: '/api/sensores/exportar/csv?fechaInicio=2024-11-01&fechaFin=2024-11-30&limit=10000',
-            
-            // 🔥 BACKUP
             estadoBackup: '/api/backup/status',
             ejecutarBackup: '/api/backup/execute',
             historialBackup: '/api/backup/logs?limit=20',
@@ -163,16 +152,10 @@ app.get('/api', (req, res) => {
     });
 });
 
-// ==================== RUTA RAÍZ ====================
-
-// La ruta raíz sirve el index.html de la carpeta public
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ==================== MANEJO DE ERRORES ====================
-
-// Middleware para rutas no encontradas
 app.use((req, res) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({
@@ -185,15 +168,12 @@ app.use((req, res) => {
         });
     }
     
-    // SPA fallback - cualquier ruta no API devuelve el index.html
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Middleware global de manejo de errores
 app.use((err, req, res, next) => {
     console.error('❌ Error:', err);
     
-    // No enviar detalles de error en producción
     const errorDetails = process.env.NODE_ENV === 'production' 
         ? 'Error interno del servidor'
         : err.message;
@@ -204,8 +184,6 @@ app.use((err, req, res, next) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// ==================== CONEXIÓN A MONGODB ====================
 
 async function connectMongoDB() {
     try {
@@ -224,12 +202,10 @@ async function connectMongoDB() {
         console.log(`📁 Base de datos: ${mongoose.connection.name}`);
         console.log(`📊 Host: ${mongoose.connection.host}`);
         
-        // Verificar cantidad de documentos
         const Sensor = require('./models/Sensor');
         const count = await Sensor.countDocuments();
         console.log(`📄 Documentos en sonido_raw: ${count.toLocaleString('es-CO')}`);
         
-        // Verificar rango de fechas de los datos
         const dateRangeResult = await Sensor.aggregate([
             {
                 $group: {
@@ -253,7 +229,6 @@ async function connectMongoDB() {
     }
 }
 
-// Manejo de eventos de MongoDB
 mongoose.connection.on('error', err => {
     console.error('❌ Error de MongoDB:', err.message);
 });
@@ -266,24 +241,16 @@ mongoose.connection.on('reconnected', () => {
     console.log('✅ MongoDB reconectado');
 });
 
-// ==================== 🔥 SISTEMA DE BACKUP ====================
-
 async function initializeBackupSystem() {
     try {
         console.log('\n🔄 Inicializando sistema de backup...');
         
-        // Conectar MySQL
         await connectMySQL();
-        
-        // Inicializar tablas
         await backupService.initializeTables();
-        
-        // Programar backup diario automático
         backupService.scheduleDaily();
         
         console.log('✅ Sistema de backup inicializado correctamente\n');
         
-        // Obtener estadísticas iniciales
         const stats = await backupService.getBackupStats();
         if (stats.database) {
             console.log('📊 Estado actual del backup:');
@@ -301,14 +268,11 @@ async function initializeBackupSystem() {
     }
 }
 
-// ==================== INICIAR SERVIDOR ====================
-
 connectMongoDB();
 
-// 🔥 Inicializar backup después de MongoDB
 setTimeout(() => {
     initializeBackupSystem();
-}, 2000); // Esperar 2 segundos después de conectar MongoDB
+}, 2000);
 
 const server = app.listen(PORT, () => {
     console.log(`\n${'='.repeat(70)}`);
@@ -341,11 +305,8 @@ const server = app.listen(PORT, () => {
     console.log(`\n${'='.repeat(70)}\n`);
 });
 
-// Configuración de timeouts
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
-
-// ==================== GRACEFUL SHUTDOWN ====================
 
 let isShuttingDown = false;
 
@@ -363,18 +324,15 @@ const gracefulShutdown = async (signal) => {
     }, 30000);
     
     try {
-        // Cerrar servidor HTTP
         console.log('🛑 Cerrando servidor HTTP...');
         await new Promise((resolve, reject) => {
             server.close((err) => err ? reject(err) : resolve());
         });
         console.log('✅ Servidor HTTP cerrado');
         
-        // 🔥 Cerrar conexión MySQL
         console.log('🛑 Cerrando conexión MySQL...');
         await closeMySQL();
         
-        // Cerrar conexión MongoDB
         console.log('🛑 Cerrando conexión MongoDB...');
         await mongoose.connection.close(false);
         console.log('✅ MongoDB desconectado');
@@ -390,11 +348,9 @@ const gracefulShutdown = async (signal) => {
     }
 };
 
-// Escuchar señales de terminación
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-// Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
     console.error('❌ Excepción no capturada:', error);
     gracefulShutdown('uncaughtException');
