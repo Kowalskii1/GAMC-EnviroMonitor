@@ -34,6 +34,8 @@ const estadisticasRoutes = require('./routes/estadisticas');
 const healthRoutes = require('./routes/health');
 const backupRoutes = require('./routes/backup');
 
+const soterradosRoutes = require('./routes/soterrados');
+
 const { connectMySQL, closeMySQL } = require('./config/mysql');
 const backupService = require('./services/backupService');
 
@@ -73,6 +75,7 @@ app.use('/api/sensores', sensorRoutes);
 app.use('/api/estadisticas', estadisticasRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/soterrados', soterradosRoutes);
 
 app.get('/api', (req, res) => {
     res.json({
