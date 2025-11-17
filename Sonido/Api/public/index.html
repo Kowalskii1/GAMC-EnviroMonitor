@@ -1286,7 +1286,7 @@
                         data: {
                             labels: top5.map(d => d.deviceName || d._id),
                             datasets: [{
-                                label: 'LAeq Promedio',
+                                label: 'Nivel de sonido Promedio',
                                 data: top5.map(d => toNumber(d.promedioLAeq)),
                                 backgroundColor: [
                                     'rgba(79, 70, 229, 0.8)',
@@ -1481,7 +1481,7 @@
                         data: {
                             labels: weekdayData.data.map(d => d.diaSemana),
                             datasets: [{
-                                label: 'Promedio LAeq (dB)',
+                                label: 'Nivel de sonido Promedio(dB)',
                                 data: weekdayData.data.map(d => toNumber(d.promedioLAeq)),
                                 backgroundColor: 'rgba(79, 70, 229, 0.8)',
                                 borderRadius: 8
