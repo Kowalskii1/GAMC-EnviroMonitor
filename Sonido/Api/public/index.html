@@ -723,7 +723,7 @@
                                 </div>
                                 <div>
                                     <h6 id="promedioLAeq">0.0</h6>
-                                    <p class="label mb-0">LAeq Promedio (dB)</p>
+                                    <p class="label mb-0">Nivel De sonido Promedio (dB)</p>
                                 </div>
                             </div>
                         </div>
@@ -739,7 +739,7 @@
                                 </div>
                                 <div>
                                     <h6 id="maxLAeq">0.0</h6>
-                                    <p class="label mb-0">LAeq Máximo (dB)</p>
+                                    <p class="label mb-0">Nivel De sonido Máximo (dB)</p>
                                 </div>
                             </div>
                         </div>
@@ -801,6 +801,13 @@
             <div class="row" id="devicesGrid">
                 <!-- Devices will be loaded here -->
             </div>
+
+            <!-- NOTE: Los datos de esta sección se importan en la función loadDevices()
+                 definida en el <script> al final de este archivo. Esa función llama:
+                 fetchAPI('/sensores/devices') y luego renderiza los elementos dentro
+                 del contenedor con id="devicesGrid".
+                 Además la navegación ejecuta loadSectionData -> loadDevices() al
+                 seleccionar "Dispositivos" en la sidebar. -->
         </section>
 
         <!-- Data Section -->
@@ -1215,7 +1222,7 @@
                         data: {
                             labels: validData.map(d => `${d._id}:00`),
                             datasets: [{
-                                label: 'LAeq Promedio',
+                                label: 'Nivel de sonido Promedio',
                                 data: validData.map(d => toNumber(d.promedioLAeq)),
                                 borderColor: 'rgb(79, 70, 229)',
                                 backgroundColor: 'rgba(79, 70, 229, 0.1)',
@@ -1224,7 +1231,7 @@
                                 pointRadius: 4,
                                 pointHoverRadius: 6
                             }, {
-                                label: 'LAeq Máximo',
+                                label: 'Nivel de sonido Máximo',
                                 data: validData.map(d => toNumber(d.maxLAeq)),
                                 borderColor: 'rgb(239, 68, 68)',
                                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -1279,7 +1286,7 @@
                         data: {
                             labels: top5.map(d => d.deviceName || d._id),
                             datasets: [{
-                                label: 'LAeq Promedio',
+                                label: 'Nivel de sonido Promedio',
                                 data: top5.map(d => toNumber(d.promedioLAeq)),
                                 backgroundColor: [
                                     'rgba(79, 70, 229, 0.8)',
@@ -1394,11 +1401,11 @@
                                     </div>
                                     <div class="row g-3">
                                         <div class="col-6">
-                                            <small class="text-muted d-block">DevAddr</small>
+                                            <small class="text-muted d-block">Registro de dispositivo</small>
                                             <strong>${device.devAddr}</strong>
                                         </div>
                                         <div class="col-6">
-                                            <small class="text-muted d-block">LAeq Actual</small>
+                                            <small class="text-muted d-block">Nivel de sonido registrado</small>
                                             <strong>${formatNumber(laeq, 1)} dB</strong>
                                         </div>
                                         <div class="col-12">
@@ -1474,7 +1481,7 @@
                         data: {
                             labels: weekdayData.data.map(d => d.diaSemana),
                             datasets: [{
-                                label: 'Promedio LAeq (dB)',
+                                label: 'Nivel de sonido Promedio(dB)',
                                 data: weekdayData.data.map(d => toNumber(d.promedioLAeq)),
                                 backgroundColor: 'rgba(79, 70, 229, 0.8)',
                                 borderRadius: 8
