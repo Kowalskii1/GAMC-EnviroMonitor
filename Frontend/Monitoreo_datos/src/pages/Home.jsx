@@ -1,14 +1,15 @@
 import styled from "styled-components";
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
-const API = "https://qa.hermesoft.com/api";
+const API_BASE = "https://qa.hermesoft.com/api";
 
 export function Home() {
   const [stats, setStats] = useState({
-    totalSensores: 0,
-    totalAlertas: 0,
-    operativos: 0,
-    promedioData: 0,
+    totalDispositivos: 0,
+    totalMediciones: 0,
+    promedioLAeq: 0,
+    maxLAeq: 0,
   });
   const [serverStatus, setServerStatus] = useState({
     online: false,
@@ -23,11 +24,17 @@ export function Home() {
 
   const checkServerStatus = async () => {
     try {
-      const response = await fetch(`${API}/sensores/status`);
-      if (response.ok) {
+      const response = await fetch(`${API_BASE}/health`);
+      const data = await response.json();
+      if (response.ok && data.status === "OK") {
         setServerStatus({
           online: true,
           text: "Sistema Operativo",
+        });
+      } else {
+        setServerStatus({
+          online: false,
+          text: "Sistema Degradado",
         });
       }
     } catch (error) {
@@ -38,43 +45,41 @@ export function Home() {
   const loadHomeData = async () => {
     setLoading(true);
     try {
-      const [resStatus, resAlerts] = await Promise.all([
-        fetch(`${API}/sensores/status`),
-        fetch(`${API}/sensores/alertas`),
+      const [resumenRes, devicesRes] = await Promise.all([
+        fetch(`${API_BASE}/estadisticas/resumen`),
+        fetch(`${API_BASE}/sensores/devices`),
       ]);
 
-      const status = await resStatus.json();
-      const alerts = await resAlerts.json();
+      const resumen = await resumenRes.json();
+      const devices = await devicesRes.json();
 
-      const cleaned = status.map((s) => ({
-        ...s,
-        data: Number(s.data),
-      }));
-
-      const totalSensores = cleaned.length;
-      const totalAlertas = alerts.length;
-      const operativos = totalSensores - totalAlertas;
-      const promedioData =
-        cleaned.reduce((acc, s) => acc + s.data, 0) / totalSensores || 0;
-
-      setStats({
-        totalSensores,
-        totalAlertas,
-        operativos,
-        promedioData,
-      });
+      if (resumen.success && resumen.data) {
+        setStats({
+          totalDispositivos: devices.success ? devices.total || 0 : 0,
+          totalMediciones: resumen.data.totalMediciones || 0,
+          promedioLAeq: resumen.data.promedioLAeq || 0,
+          maxLAeq: resumen.data.maxLAeq || 0,
+        });
+      }
     } catch (error) {
       console.error("Error cargando datos del home:", error);
     }
     setLoading(false);
   };
 
+  const formatNumber = (value, decimals = 1) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? "0.0" : num.toFixed(decimals);
+  };
+
   return (
     <Container>
       <Header>
         <HeaderContent>
-          <h1>Dashboard Datos Soterrados</h1>
-          <Subtitle>Sistema de Monitoreo de Sensores en Tiempo Real</Subtitle>
+          <h1>Dashboard Monitoreo Ambiental</h1>
+          <Subtitle>
+            Sistema de Monitoreo de Ruido Ambiental - LoRaWAN WS302
+          </Subtitle>
         </HeaderContent>
         <StatusIndicator online={serverStatus.online}>
           <StatusDot online={serverStatus.online} />
@@ -86,9 +91,9 @@ export function Home() {
         <WelcomeCard>
           <h2>Bienvenido al Sistema de Monitoreo</h2>
           <p>
-            Sistema integral para el monitoreo y análisis de sensores soterrados.
-            Visualice datos en tiempo real, revise históricos y genere
-            estadísticas avanzadas.
+            Sistema integral para el monitoreo y análisis de sensores de ruido
+            ambiental LoRaWAN WS302. Visualice datos en tiempo real, revise
+            históricos y genere estadísticas avanzadas.
           </p>
         </WelcomeCard>
       </WelcomeSection>
@@ -102,26 +107,28 @@ export function Home() {
             <StatsGrid>
               <StatCard color="#2196F3">
                 <StatIcon>📡</StatIcon>
-                <StatValue>{stats.totalSensores}</StatValue>
-                <StatLabel>Sensores Totales</StatLabel>
+                <StatValue>
+                  {stats.totalMediciones.toLocaleString("es-CO")}
+                </StatValue>
+                <StatLabel>Mediciones Registradas</StatLabel>
               </StatCard>
 
               <StatCard color="#4CAF50">
-                <StatIcon>✓</StatIcon>
-                <StatValue>{stats.operativos}</StatValue>
-                <StatLabel>Operativos</StatLabel>
-              </StatCard>
-
-              <StatCard color="#FF5252">
-                <StatIcon>⚠</StatIcon>
-                <StatValue>{stats.totalAlertas}</StatValue>
-                <StatLabel>Alertas Activas</StatLabel>
+                <StatIcon>📊</StatIcon>
+                <StatValue>{stats.totalDispositivos}</StatValue>
+                <StatLabel>Dispositivos Activos</StatLabel>
               </StatCard>
 
               <StatCard color="#FF9800">
-                <StatIcon>📊</StatIcon>
-                <StatValue>{stats.promedioData.toFixed(2)}</StatValue>
-                <StatLabel>Promedio de Datos</StatLabel>
+                <StatIcon>📈</StatIcon>
+                <StatValue>{formatNumber(stats.promedioLAeq)} dB</StatValue>
+                <StatLabel>LAeq Promedio</StatLabel>
+              </StatCard>
+
+              <StatCard color="#FF5252">
+                <StatIcon>⚡</StatIcon>
+                <StatValue>{formatNumber(stats.maxLAeq)} dB</StatValue>
+                <StatLabel>LAeq Máximo Registrado</StatLabel>
               </StatCard>
             </StatsGrid>
           </StatsSection>
@@ -131,7 +138,7 @@ export function Home() {
             <FeaturesGrid>
               <FeatureCard>
                 <FeatureIcon>📈</FeatureIcon>
-                <FeatureTitle>Estado General</FeatureTitle>
+                <FeatureTitle>Dashboard Principal</FeatureTitle>
                 <FeatureDescription>
                   Visualice el estado global de todos los sensores con gráficos
                   interactivos y métricas en tiempo real.
@@ -140,46 +147,47 @@ export function Home() {
 
               <FeatureCard>
                 <FeatureIcon>🔍</FeatureIcon>
-                <FeatureTitle>Sensores por Tipo</FeatureTitle>
+                <FeatureTitle>Dispositivos LoRaWAN</FeatureTitle>
                 <FeatureDescription>
-                  Analice la distribución de sensores por categorías y tipos con
-                  gráficos de barras detallados.
+                  Analice el estado individual de cada sensor WS302: niveles de
+                  ruido, batería y actividad reciente.
                 </FeatureDescription>
               </FeatureCard>
 
               <FeatureCard>
                 <FeatureIcon>📋</FeatureIcon>
-                <FeatureTitle>Lista de Sensores</FeatureTitle>
+                <FeatureTitle>Datos en Tiempo Real</FeatureTitle>
                 <FeatureDescription>
-                  Acceda a la información completa de cada sensor: datos, hora,
-                  dirección y detalles técnicos.
+                  Acceda a las últimas mediciones registradas con información
+                  detallada de LAeq, LAI, LAImax y estado de batería.
                 </FeatureDescription>
               </FeatureCard>
 
               <FeatureCard>
                 <FeatureIcon>📊</FeatureIcon>
-                <FeatureTitle>Historial</FeatureTitle>
+                <FeatureTitle>Análisis Avanzado</FeatureTitle>
                 <FeatureDescription>
-                  Revise el histórico completo de mediciones con gráficos de líneas
-                  para análisis temporal.
+                  Genere reportes estadísticos profesionales con análisis
+                  temporal, distribuciones, gráficos de control y pruebas de
+                  normalidad.
                 </FeatureDescription>
               </FeatureCard>
 
               <FeatureCard>
                 <FeatureIcon>📉</FeatureIcon>
-                <FeatureTitle>Estadísticas Avanzadas</FeatureTitle>
+                <FeatureTitle>Tendencias y Patrones</FeatureTitle>
                 <FeatureDescription>
-                  Genere reportes con media móvil, curvas suavizadas, análisis de
-                  variabilidad e histogramas.
+                  Identifique patrones temporales por hora del día, día de la
+                  semana y tendencias a largo plazo.
                 </FeatureDescription>
               </FeatureCard>
 
               <FeatureCard>
                 <FeatureIcon>🎯</FeatureIcon>
-                <FeatureTitle>Alertas Inteligentes</FeatureTitle>
+                <FeatureTitle>Exportación de Datos</FeatureTitle>
                 <FeatureDescription>
-                  Reciba notificaciones sobre sensores con comportamiento anómalo o
-                  fuera de rango.
+                  Exporte mediciones a formato CSV para análisis externos y
+                  generación de reportes personalizados.
                 </FeatureDescription>
               </FeatureCard>
             </FeaturesGrid>
@@ -188,24 +196,24 @@ export function Home() {
           <QuickAccessSection>
             <SectionTitle>Acceso Rápido</SectionTitle>
             <QuickAccessGrid>
-              <QuickAccessButton to="/estado">
+              <QuickAccessButton as={Link} to="/dashboard">
                 <ButtonIcon>🏠</ButtonIcon>
-                <ButtonText>Ver Estado General</ButtonText>
+                <ButtonText>Dashboard Principal</ButtonText>
               </QuickAccessButton>
 
-              <QuickAccessButton to="/lista">
+              <QuickAccessButton as={Link} to="/dispositivos">
+                <ButtonIcon>📡</ButtonIcon>
+                <ButtonText>Dispositivos</ButtonText>
+              </QuickAccessButton>
+
+              <QuickAccessButton as={Link} to="/datos">
                 <ButtonIcon>📋</ButtonIcon>
-                <ButtonText>Lista de Sensores</ButtonText>
+                <ButtonText>Datos en Vivo</ButtonText>
               </QuickAccessButton>
 
-              <QuickAccessButton to="/historial">
-                <ButtonIcon>📊</ButtonIcon>
-                <ButtonText>Ver Historial</ButtonText>
-              </QuickAccessButton>
-
-              <QuickAccessButton to="/estadisticas">
+              <QuickAccessButton as={Link} to="/analytics">
                 <ButtonIcon>📈</ButtonIcon>
-                <ButtonText>Estadísticas Avanzadas</ButtonText>
+                <ButtonText>Análisis Avanzado</ButtonText>
               </QuickAccessButton>
             </QuickAccessGrid>
           </QuickAccessSection>
@@ -214,8 +222,8 @@ export function Home() {
 
       <Footer>
         <FooterText>
-          Dashboard Datos Soterrados © {new Date().getFullYear()} | Sistema de
-          Monitoreo en Tiempo Real
+          Sistema de Monitoreo Ambiental WS302 © {new Date().getFullYear()} |
+          Powered by LoRaWAN Technology
         </FooterText>
       </Footer>
     </Container>
@@ -445,6 +453,7 @@ const QuickAccessButton = styled.div`
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  text-decoration: none;
 
   &:hover {
     transform: translateY(-4px);

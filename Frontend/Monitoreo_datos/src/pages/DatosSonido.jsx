@@ -93,6 +93,21 @@ export function DashboardSonido() {
     skewnessThreshold: 0.5, // umbral de |asimetría|
   });
 
+  // Filtros de selección para dashboard y analytics
+  const [dashboardFilters, setDashboardFilters] = useState({
+    dias: "auto",
+  });
+
+  const [analyticsFilters, setAnalyticsFilters] = useState({
+    dias: "auto",
+  });
+
+  // Filtros de selección para la tabla de datos en vivo
+  const [tableFilters, setTableFilters] = useState({
+    device: "all",
+    minLAeq: "",
+  });
+
   // Modo de reporte: global o por sensor
   const [selectedDevice, setSelectedDevice] = useState("global");
 
@@ -261,6 +276,20 @@ export function DashboardSonido() {
     else if (dataRange.diasDisponibles <= 30)
       return Math.min(14, dataRange.diasDisponibles);
     else return 30;
+  };
+
+  // Traducir el filtro de días (auto / valor fijo) a un número de días real
+  const getDiasFromFilter = (diasFilter) => {
+    if (!dataRange.diasDisponibles) {
+      if (diasFilter === "auto") return determinarDiasOptimos();
+      const parsed = parseInt(diasFilter, 10);
+      return Number.isNaN(parsed) ? determinarDiasOptimos() : parsed;
+    }
+
+    if (diasFilter === "auto") return determinarDiasOptimos();
+    const parsed = parseInt(diasFilter, 10);
+    if (Number.isNaN(parsed)) return determinarDiasOptimos();
+    return Math.min(parsed, dataRange.diasDisponibles);
   };
 
   // Cargar resumen
@@ -642,12 +671,12 @@ export function DashboardSonido() {
   };
 
   // Box Plot por Sensor
-  const loadBoxplot = async () => {
+  const loadBoxplot = async (diasOptimos) => {
     if (!boxplotChartRef.current) return;
 
     try {
       const response = await fetch(
-        `${API_BASE}/estadisticas/comparacion-dispositivos?dias=${determinarDiasOptimos()}`
+        `${API_BASE}/estadisticas/comparacion-dispositivos?dias=${diasOptimos}`
       );
       const data = await response.json();
 
@@ -1084,8 +1113,8 @@ export function DashboardSonido() {
   };
 
   // Cargar analytics avanzados
-  const loadAnalytics = async () => {
-    const diasOptimos = determinarDiasOptimos();
+  const loadAnalytics = async (forceDias) => {
+    const diasOptimos = forceDias || getDiasFromFilter(analyticsFilters.dias);
 
     try {
       // Asegurarnos de tener lista de dispositivos para el selector
@@ -1184,7 +1213,7 @@ export function DashboardSonido() {
 
       // Box Plot por Sensor
       if (boxplotChartRef.current) {
-        loadBoxplot();
+        await loadBoxplot(diasOptimos);
       }
 
       // Reportes tipo documento (I-MR, Q-Q, Box-Cox, descomposición),
@@ -1231,15 +1260,15 @@ export function DashboardSonido() {
   };
 
   // Cargar dashboard principal
-  const loadDashboard = async () => {
+  const loadDashboard = async (forceDias) => {
     setLoading(true);
     setError("");
     await loadResumen();
     await loadDevices();
-    const diasOptimos = determinarDiasOptimos();
-    await loadHourlyChart(diasOptimos);
-    await loadDeviceComparisonChart(diasOptimos);
-    await loadWeeklyTrendChart(diasOptimos);
+    const dias = forceDias || getDiasFromFilter(dashboardFilters.dias);
+    await loadHourlyChart(dias);
+    await loadDeviceComparisonChart(dias);
+    await loadWeeklyTrendChart(dias);
     setLoading(false);
   };
 
@@ -1261,7 +1290,7 @@ export function DashboardSonido() {
         await loadDevices();
         break;
       case "datos":
-        await loadDataTable();
+        await Promise.all([loadDevices(), loadDataTable()]);
         break;
       case "analytics":
         await loadAnalytics();
@@ -1288,22 +1317,47 @@ export function DashboardSonido() {
   // Actualizar dashboard cuando cambia el rango de datos
   useEffect(() => {
     if (dataRange.diasDisponibles > 0 && vista === "dashboard") {
-      const diasOptimos = determinarDiasOptimos();
-      loadHourlyChart(diasOptimos);
-      loadDeviceComparisonChart(diasOptimos);
-      loadWeeklyTrendChart(diasOptimos);
+      loadDashboard();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataRange]);
+  }, [dataRange, vista]);
 
-  // Cuando cambia el dispositivo seleccionado en la vista analytics,
-  // recargamos los reportes avanzados.
+  // Cuando cambia el dispositivo seleccionado o config de reportes,
+  // recargamos los reportes avanzados si estamos en analytics.
   useEffect(() => {
     if (vista === "analytics") {
       loadAnalytics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDevice, reportConfig.sigmaMultiplier, reportConfig.seasonalPeriod, reportConfig.autoBoxCox, reportConfig.skewnessThreshold]);
+  }, [
+    selectedDevice,
+    reportConfig.sigmaMultiplier,
+    reportConfig.seasonalPeriod,
+    reportConfig.autoBoxCox,
+    reportConfig.skewnessThreshold,
+    vista,
+  ]);
+
+  // Datos filtrados para la tabla en vivo
+  const filteredTableData = tableData.filter((item) => {
+    if (tableFilters.device !== "all" && item.devAddr !== tableFilters.device) {
+      return false;
+    }
+
+    const laeq = toNumber(item.object?.LAeq, NaN);
+
+    if (tableFilters.minLAeq !== "") {
+      const min = parseFloat(tableFilters.minLAeq);
+      if (!Number.isNaN(min) && laeq < min) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const totalRegistros = tableData.length;
+  const registrosFiltrados = filteredTableData.length;
 
   return (
     <Container>
@@ -1396,6 +1450,30 @@ export function DashboardSonido() {
         <Section>
           <h2>Dashboard Principal</h2>
 
+          <ControlsRow>
+            <ControlGroup>
+              <label>Rango de días (gráficos principales):</label>
+              <select
+                value={dashboardFilters.dias}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setDashboardFilters((prev) => ({ ...prev, dias: value }));
+                  const dias = getDiasFromFilter(value);
+                  loadDashboard(dias);
+                }}
+              >
+                <option value="auto">
+                  Automático ({determinarDiasOptimos()} días)
+                </option>
+                <option value="1">Últimas 24 horas</option>
+                <option value="3">Últimos 3 días</option>
+                <option value="7">Últimos 7 días</option>
+                <option value="14">Últimos 14 días</option>
+                <option value="30">Últimos 30 días</option>
+              </select>
+            </ControlGroup>
+          </ControlsRow>
+
           <SummaryCards>
             <SmallCard>
               <h3>{stats.totalMediciones.toLocaleString("es-CO")}</h3>
@@ -1431,7 +1509,10 @@ export function DashboardSonido() {
             </ChartBox>
 
             <ChartBox>
-              <h3>Tendencia Temporal ({determinarDiasOptimos()} días)</h3>
+              <h3>
+                Tendencia Temporal (
+                {getDiasFromFilter(dashboardFilters.dias)} días)
+              </h3>
               <CanvasContainer>
                 <canvas ref={weeklyTrendChartRef}></canvas>
               </CanvasContainer>
@@ -1490,6 +1571,50 @@ export function DashboardSonido() {
           <h2>Datos en Tiempo Real</h2>
           <p>Últimas 100 mediciones registradas</p>
 
+          <ControlsRow>
+            <ControlGroup>
+              <label>Filtrar por dispositivo:</label>
+              <select
+                value={tableFilters.device}
+                onChange={(e) =>
+                  setTableFilters((prev) => ({
+                    ...prev,
+                    device: e.target.value,
+                  }))
+                }
+              >
+                <option value="all">Todos los dispositivos</option>
+                {devices.map((d) => (
+                  <option key={d.devAddr} value={d.devAddr}>
+                    {d.deviceName || d.devAddr}
+                  </option>
+                ))}
+              </select>
+            </ControlGroup>
+
+            <ControlGroup>
+              <label>LAeq mínimo (dB):</label>
+              <input
+                type="number"
+                value={tableFilters.minLAeq}
+                onChange={(e) =>
+                  setTableFilters((prev) => ({
+                    ...prev,
+                    minLAeq: e.target.value,
+                  }))
+                }
+                placeholder="Ej: 50"
+              />
+            </ControlGroup>
+
+            <ControlGroup>
+              <label>Resumen:</label>
+              <div style={{ fontSize: 13 }}>
+                Mostrando {registrosFiltrados} de {totalRegistros} registros
+              </div>
+            </ControlGroup>
+          </ControlsRow>
+
           <TableContainer>
             <Table>
               <thead>
@@ -1504,7 +1629,7 @@ export function DashboardSonido() {
                 </tr>
               </thead>
               <tbody>
-                {tableData.map((item, idx) => (
+                {filteredTableData.map((item, idx) => (
                   <tr key={idx}>
                     <td>{new Date(item.time).toLocaleString("es-CO")}</td>
                     <td>
@@ -1547,6 +1672,26 @@ export function DashboardSonido() {
 
           {/* Panel de controles de reporte y selección de sensor */}
           <ControlsRow>
+            <ControlGroup>
+              <label>Rango de días (series y paneles):</label>
+              <select
+                value={analyticsFilters.dias}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setAnalyticsFilters((prev) => ({ ...prev, dias: value }));
+                  const dias = getDiasFromFilter(value);
+                  loadAnalytics(dias);
+                }}
+              >
+                <option value="auto">
+                  Automático ({determinarDiasOptimos()} días)
+                </option>
+                <option value="7">Últimos 7 días</option>
+                <option value="14">Últimos 14 días</option>
+                <option value="30">Últimos 30 días</option>
+              </select>
+            </ControlGroup>
+
             <ControlGroup>
               <label>Fuente de serie para reportes:</label>
               <select
@@ -2077,7 +2222,7 @@ const Table = styled.table`
   }
 `;
 
-// Panel de controles superiores en la vista de analytics
+// Panel de controles superiores (reutilizado en dashboard, analytics y datos)
 const ControlsRow = styled.div`
   display: flex;
   flex-wrap: wrap;
