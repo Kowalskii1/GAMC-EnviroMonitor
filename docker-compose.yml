@@ -1,0 +1,67 @@
+# version: "3.8"
+
+services:
+  # Backend
+  backend:
+    build:
+      context: ./Backend/Api
+      dockerfile: Dockerfile
+    container_name: backend
+    env_file:
+      - ./Backend/Api/.env.production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+      - mysql
+    # Volumen solo si quieres hot reload
+    volumes:
+      - ./Backend/Api:/app
+      - /app/node_modules
+
+  # Frontend
+  frontend:
+    build:
+      context: ./Frontend/Monitoreo_datos
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    volumes:
+      - ./Frontend/Monitoreo_datos:/app
+      - /app/node_modules
+
+  # MongoDB
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: emergentes
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  # MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: db32645
+      MYSQL_USER: db32645
+      MYSQL_PASSWORD: wJ+3C4r!jF%6
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mongo-data:
+  mysql-data:
