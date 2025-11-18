@@ -1,32 +1,31 @@
 import styled from "styled-components";
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   BarChart, Bar, PieChart, Pie, Cell,
   ResponsiveContainer
 } from "recharts";
 
-const API = "http://localhost:3000/api";
+//const API = "http://localhost:3000/api/soterrados";
+const API = "https://qa.hermesoft.com/api/soterrados";
+
 
 export function DashboardSoterrados() {
   const [vista, setVista] = useState("inicio");
 
-  // Lista principal
   const [sensores, setSensores] = useState([]);
   const [alertas, setAlertas] = useState([]);
 
-  // Historial
   const [historial, setHistorial] = useState([]);
   const [sensorSeleccionado, setSensorSeleccionado] = useState("");
 
-  // Estadísticas
   const [subVistaEstadisticas, setSubVistaEstadisticas] = useState("movingAvg");
   const [statsSource, setStatsSource] = useState("latest");
   const [statsDevice, setStatsDevice] = useState("");
   const [computedData, setComputedData] = useState([]);
   const [histogramData, setHistogramData] = useState([]);
   const [rawStatsData, setRawStatsData] = useState([]);
-
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,62 +35,93 @@ export function DashboardSoterrados() {
 
   async function fetchStatusAndAlerts() {
     try {
-      const resStatus = await fetch(`${API}/sensores/status`);
-      const resAlerts = await fetch(`${API}/sensores/alertas`);
+      const resStatus = await fetch(`${API}/status`);
+
+      let alerts = [];
+      try {
+        const resAlerts = await fetch(`${API}/alertas`);
+        alerts = await resAlerts.json();
+      } catch {
+        
+      }
 
       const status = await resStatus.json();
+
       const cleaned = status.map(s => ({
         ...s,
-        data: Number(s.data),
-        latitude: Number(s.latitude),
-        longitude: Number(s.longitude),
+        data: s.data !== undefined ? Number(s.data) : NaN,
+        latitude: s.latitude !== undefined ? Number(s.latitude) : undefined,
+        longitude: s.longitude !== undefined ? Number(s.longitude) : undefined,
       }));
 
       setSensores(cleaned);
-      setAlertas(await resAlerts.json());
+
+      if (alerts && Array.isArray(alerts) && alerts.length > 0) {
+        setAlertas(alerts);
+      } else {
+        // fallback: alertas son aquellos con data === 0
+        setAlertas(cleaned.filter(s => Number(s.data) === 0));
+      }
     } catch (e) {
+      console.error(e);
       setError("No se pudieron cargar los sensores.");
     }
   }
 
-  //Historial
+
+  //Cargar Historial
   async function cargarHistorial(deviceName) {
     if (!deviceName) return;
+
     setSensorSeleccionado(deviceName);
     setLoading(true);
+    setError("");
 
     try {
-      const res = await fetch(`${API}/historial/sensor/${deviceName}`);
+      const res = await fetch(`${API}/historial/${encodeURIComponent(deviceName)}`);
       const arr = await res.json();
 
-      const cleaned = arr
-        .map(d => ({ ...d, data: Number(d.data) }))
+      const cleaned = (arr || [])
+        .map(d => ({ ...d, data: d.data !== undefined ? Number(d.data) : NaN }))
         .sort((a, b) => new Date(a.time) - new Date(b.time));
 
       setHistorial(cleaned);
       setVista("historial");
-    } catch {
+    } catch (e) {
+      console.error(e);
       setError("No se pudo cargar historial.");
     }
 
     setLoading(false);
   }
+
+
   //Estadisticas
   async function fetchStatsSource() {
+    setError("");
+
+    if (!statsDevice) {
+      setError("Seleccione un sensor antes de cargar estadísticas.");
+      return;
+    }
+
     setComputedData([]);
     setHistogramData([]);
     setRawStatsData([]);
     setLoading(true);
 
     try {
+
       if (statsSource === "latest") {
-        const res = await fetch(`${API}/sensores/status`);
+        const res = await fetch(`${API}/status`);
         const arr = await res.json();
-        const dev = arr.find(s => s.deviceName === statsDevice);
+
+        const dev = (arr || []).find(s => s.deviceName === statsDevice);
 
         if (!dev) {
           setLoading(false);
-          return setError("Sensor no encontrado en últimos datos");
+          setError("Sensor no encontrado en últimos datos.");
+          return;
         }
 
         const datum = { time: dev.time, data: Number(dev.data) };
@@ -100,34 +130,37 @@ export function DashboardSoterrados() {
       }
 
       if (statsSource === "historial") {
-        if (!statsDevice) {
-          setLoading(false);
-          return setError("Seleccione un sensor.");
-        }
-
-        const res = await fetch(`${API}/historial/sensor/${statsDevice}`);
+        const res = await fetch(`${API}/historial/${encodeURIComponent(statsDevice)}`);
         const arr = await res.json();
 
+        if (!arr || arr.length === 0) {
+          setLoading(false);
+          setError("No hay datos históricos para este sensor.");
+          return;
+        }
+
         const cleaned = arr
-          .map(d => ({ ...d, data: Number(d.data) }))
+          .map(d => ({ ...d, data: d.data !== undefined ? Number(d.data) : NaN }))
           .sort((a, b) => new Date(a.time) - new Date(b.time));
 
         setRawStatsData(cleaned);
         prepareComputed(cleaned);
       }
 
-    } catch {
+    } catch (e) {
+      console.error(e);
       setError("Error cargando estadísticas");
     }
 
     setLoading(false);
   }
 
-  //Calculos
+
+  //Calculos estadisticos
   function movingAverageArr(arr, w = 5) {
     return arr.map((d, i) => {
       const start = Math.max(0, i - w + 1);
-      const window = arr.slice(start, i + 1).map(x => x.data);
+      const window = arr.slice(start, i + 1).map(x => Number(x.data) || 0);
       const avg = window.reduce((a, b) => a + b, 0) / window.length;
       return { ...d, movingAvg: avg };
     });
@@ -136,7 +169,7 @@ export function DashboardSoterrados() {
   function rollingStdArr(arr, w = 5) {
     return arr.map((d, i) => {
       const start = Math.max(0, i - w + 1);
-      const window = arr.slice(start, i + 1).map(x => x.data);
+      const window = arr.slice(start, i + 1).map(x => Number(x.data) || 0);
       const mean = window.reduce((a, b) => a + b, 0) / window.length;
       const variance = window.reduce((a, b) => a + (b - mean) ** 2, 0) / window.length;
       return { ...d, rollingStd: Math.sqrt(variance) };
@@ -155,15 +188,15 @@ export function DashboardSoterrados() {
   }
 
   function buildHistogram(arr) {
-    const values = arr.map(d => d.data);
-    if (values.length === 0) return [];
+    const values = arr.map(d => Number(d.data)).filter(v => !isNaN(v));
+    if (!values.length) return [];
 
     const min = Math.min(...values);
     const max = Math.max(...values);
 
     if (min === max) return [{ rango: `${min} - ${max}`, cantidad: values.length }];
 
-    const bins = Math.floor(Math.sqrt(values.length));
+    const bins = Math.max(1, Math.floor(Math.sqrt(values.length)));
     const binSize = (max - min) / bins;
 
     const hist = Array.from({ length: bins }, (_, i) => ({
@@ -181,12 +214,28 @@ export function DashboardSoterrados() {
   }
 
   function prepareComputed(arr) {
-    const bands = addDeviationBands(arr, 5);
-    const hist = buildHistogram(arr);
+    if (!arr || arr.length === 0) {
+      setComputedData([]);
+      setHistogramData([]);
+      return;
+    }
+
+    const numeric = arr.filter(d => d.data !== undefined && !isNaN(Number(d.data)));
+    if (numeric.length === 0) {
+      setComputedData([]);
+      setHistogramData([]);
+      return;
+    }
+
+    const bands = addDeviationBands(numeric, 5);
+    const hist = buildHistogram(numeric);
+
     setComputedData(bands);
     setHistogramData(hist);
   }
 
+
+  //Agrupar sensor tipo
   const sensoresPorTipo = useMemo(() => {
     return Object.values(
       sensores.reduce((acc, s) => {
@@ -199,12 +248,11 @@ export function DashboardSoterrados() {
   }, [sensores]);
 
 
-  //UI
   return (
     <Container>
-      {/* NAVBAR */}
+
+      {/* ---------------- NAV ---------------- */}
       <Navbar>
-        <NavItem active={vista === "inicio"} onClick={() => setVista("inicio")}>Inicio</NavItem>
         <NavItem active={vista === "estado"} onClick={() => setVista("estado")}>Estado General</NavItem>
         <NavItem active={vista === "tipos"} onClick={() => setVista("tipos")}>Sensores por Tipo</NavItem>
         <NavItem active={vista === "lista"} onClick={() => setVista("lista")}>Lista Sensores</NavItem>
@@ -218,17 +266,11 @@ export function DashboardSoterrados() {
 
       {error && <ErrorBox>{error}</ErrorBox>}
 
-      {}
-      {vista === "inicio" && (
-        <Section>
-          <h2>Bienvenido</h2>
-        </Section>
-      )}
-
-      {}
+      {/* ---------------- ESTADO GENERAL ---------------- */}
       {vista === "estado" && (
         <Section>
-          <h2>Estado General</h2>
+          <h2>Estado General Sensores</h2>
+
           <SummaryCards>
             <SmallCard><h3>{sensores.length}</h3><p>Sensores totales</p></SmallCard>
             <SmallCard><h3>{alertas.length}</h3><p>Alertas</p></SmallCard>
@@ -256,11 +298,10 @@ export function DashboardSoterrados() {
         </Section>
       )}
 
-      {}
+      {/* ---------------- SENSORES POR TIPO ---------------- */}
       {vista === "tipos" && (
         <Section>
           <h2>Sensores por Tipo</h2>
-
           <ChartBox>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={sensoresPorTipo}>
@@ -274,18 +315,20 @@ export function DashboardSoterrados() {
           </ChartBox>
         </Section>
       )}
-
-      {}
+      {/* ---------------- LISTA ---------------- */}
       {vista === "lista" && (
         <Section>
           <h2>Lista de Sensores</h2>
-          {/* TARJETAS */}
+
           <SensorGrid>
             {sensores.map(s => (
-              <SensorItem key={s.devEui} onClick={() => cargarHistorial(s.deviceName)}>
+              <SensorItem
+                key={s.deviceName}
+                onClick={() => cargarHistorial(s.deviceName)}
+              >
                 <strong>{s.deviceName}</strong>
                 <div>Dato: {String(s.data)}</div>
-                <div>Hora: {s.time}</div>
+                <div>Hora: {s.time ? new Date(s.time).toLocaleString() : "-"}</div>
                 <div>Dirección: {s.device_address}</div>
               </SensorItem>
             ))}
@@ -293,10 +336,10 @@ export function DashboardSoterrados() {
         </Section>
       )}
 
-      {}
+      {/* ---------------- HISTORIAL ---------------- */}
       {vista === "historial" && (
         <Section>
-          <h2>Historial de Sensores</h2>
+          <h2>Historial del Sensor</h2>
 
           <SelectSensor>
             <label>Sensor:</label>
@@ -306,7 +349,7 @@ export function DashboardSoterrados() {
             >
               <option value="">-- Seleccione --</option>
               {sensores.map(s => (
-                <option key={s.devEui} value={s.deviceName}>
+                <option key={s.deviceName} value={s.deviceName}>
                   {s.deviceName}
                 </option>
               ))}
@@ -318,7 +361,7 @@ export function DashboardSoterrados() {
 
           {historial.length > 0 && (
             <ChartBox>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={historial}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="time" tickFormatter={t => new Date(t).toLocaleString()} />
@@ -332,7 +375,7 @@ export function DashboardSoterrados() {
         </Section>
       )}
 
-      {}
+      {/* ---------------- ESTADÍSTICAS ---------------- */}
       {vista === "estadisticas" && (
         <Section>
           <h2>Estadísticas</h2>
@@ -358,7 +401,9 @@ export function DashboardSoterrados() {
               <select value={statsDevice} onChange={e => setStatsDevice(e.target.value)}>
                 <option value="">-- Seleccione --</option>
                 {sensores.map(s => (
-                  <option key={s.devEui} value={s.deviceName}>{s.deviceName}</option>
+                  <option key={s.deviceName} value={s.deviceName}>
+                    {s.deviceName}
+                  </option>
                 ))}
               </select>
             </div>
@@ -368,7 +413,6 @@ export function DashboardSoterrados() {
             </div>
           </ControlsRow>
 
-          {}
           {subVistaEstadisticas === "movingAvg" && computedData.length > 0 && (
             <ChartBox>
               <h3>Media móvil</h3>
@@ -385,10 +429,9 @@ export function DashboardSoterrados() {
             </ChartBox>
           )}
 
-          {}
           {subVistaEstadisticas === "spline" && computedData.length > 0 && (
             <ChartBox>
-              <h3>Curva Suavizada</h3>
+              <h3>Curva suavizada</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={computedData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -401,7 +444,6 @@ export function DashboardSoterrados() {
             </ChartBox>
           )}
 
-          {}
           {subVistaEstadisticas === "variability" && computedData.length > 0 && (
             <ChartBox>
               <h3>Variabilidad (±σ)</h3>
@@ -419,7 +461,6 @@ export function DashboardSoterrados() {
             </ChartBox>
           )}
 
-          {}
           {subVistaEstadisticas === "histogram" && histogramData.length > 0 && (
             <ChartBox>
               <h3>Histograma</h3>
@@ -442,7 +483,6 @@ export function DashboardSoterrados() {
   );
 }
 
-//Styles
 
 const Container = styled.div`
   padding: 18px 26px;
@@ -468,7 +508,11 @@ const NavItem = styled.div`
 
 const Header = styled.div`
   margin: 18px 0;
-  h1 { margin: 0; font-size: 30px; color: #222; }
+  h1 {
+    margin: 0;
+    font-size: 30px;
+    color: #222;
+  }
 `;
 
 const Section = styled.div`
@@ -505,27 +549,27 @@ const SensorItem = styled.div`
   padding: 12px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
   cursor: pointer;
-  &:hover { transform: translateY(-3px); transition: 0.2s; }
 `;
 
 const SelectSensor = styled.div`
   display: flex;
-  align-items: center;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 `;
 
 const ChartBox = styled.div`
   margin-top: 12px;
 `;
 
-const MapBox = styled.div`
-  margin-top: 20px;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+const ErrorBox = styled.div`
+  background: #ffeeee;
+  padding: 10px;
+  color: #a70000;
+  border-radius: 6px;
+  margin-bottom: 10px;
 `;
 
+/* SubNavbar y SubNavItem (una sola vez) */
 const SubNavbar = styled.div`
   display: flex;
   gap: 12px;
@@ -537,35 +581,27 @@ const SubNavItem = styled.div`
   cursor: pointer;
   border-radius: 6px;
   background: ${(p) => (p.active ? "#eef3f8" : "transparent")};
-  &:hover { background: #eef3f8; }
+  &:hover {
+    background: #eef3f8;
+  }
 `;
 
+/* Controles */
 const ControlsRow = styled.div`
   display: flex;
-  gap: 14px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
 
   select {
     padding: 6px;
-    border-radius: 6px;
   }
 
   button {
     padding: 8px 12px;
     background: #0077ff;
-    color: white;
-    border-radius: 6px;
     border: none;
+    border-radius: 6px;
+    color: white;
     cursor: pointer;
   }
 `;
-
-const ErrorBox = styled.div`
-  background: #ffeeee;
-  padding: 10px;
-  color: #a70000;
-  border-radius: 6px;
-  margin-bottom: 10px;
-`;
-
