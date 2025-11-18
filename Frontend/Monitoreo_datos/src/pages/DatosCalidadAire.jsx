@@ -7,3 +7,4 @@ export function DashboardCalidadAire(){
     );
 }
 const Container = styled.div``;
+
